@@ -1,26 +1,28 @@
 import React, { useState } from "react";
 import { StorefrontProduct } from "../types";
-import { 
-  TrendingUp, 
-  Eye, 
-  Search, 
-  DollarSign, 
-  ArrowUpRight, 
-  Activity, 
-  HelpCircle, 
-  BarChart4, 
-  RefreshCw, 
-  Tag, 
+import {
+  TrendingUp,
+  Eye,
+  Search,
+  DollarSign,
+  ArrowUpRight,
+  Activity,
+  HelpCircle,
+  BarChart4,
+  RefreshCw,
+  Tag,
   Sparkles,
   ShoppingBag,
   Heart
 } from "lucide-react";
+import { useT } from "../i18n/LanguageContext";
 
 interface StorefrontInsightsProps {
   products: StorefrontProduct[];
 }
 
 export default function StorefrontInsights({ products }: StorefrontInsightsProps) {
+  const t = useT();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const categories = ["All", ...Array.from(new Set(products.map(p => p.category)))];
@@ -53,16 +55,16 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
         <div>
           <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-orange-600 animate-pulse" />
-            Intelligence Insights & Analytics
+            {t("insights.panelHeaderTitle")}
           </h2>
           <p className="text-xs text-slate-500 font-medium">
-            Realtime monitoring of buyer clicks, search traffic queries, and competitive index mapping.
+            {t("insights.panelHeaderSubtitle")}
           </p>
         </div>
 
         {/* Global category scope filter */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 font-bold uppercase tracking-wider font-mono">Category Focus:</span>
+          <span className="text-xs text-slate-500 font-bold uppercase tracking-wider font-mono">{t("insights.panelCategoryFocus")}</span>
           <select
             className="text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/15 font-bold text-slate-700"
             value={selectedCategory}
@@ -80,9 +82,9 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
         {/* Metric 1 */}
         <div className="bg-white p-5 rounded-2xl border border-slate-150 flex justify-between items-center">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Clicked On (Views Rate)</span>
-            <span className="text-2xl font-black font-mono text-slate-800">{totalViews.toLocaleString()} clicks</span>
-            <span className="text-[10px] text-slate-400 block font-medium">Accumulating buyer interactions</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">{t("insights.kpiViews")}</span>
+            <span className="text-2xl font-black font-mono text-slate-800">{totalViews.toLocaleString()} {t("insights.unitClicks")}</span>
+            <span className="text-[10px] text-slate-400 block font-medium">{t("insights.kpiViewsHelp")}</span>
           </div>
           <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
             <Eye className="w-5 h-5" />
@@ -92,11 +94,11 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
         {/* Metric 2 */}
         <div className="bg-white p-5 rounded-2xl border border-slate-150 flex justify-between items-center">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Completed Conversions</span>
-            <span className="text-2xl font-black font-mono text-slate-800">{totalConversions.toLocaleString()} sold</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">{t("insights.kpiConv")}</span>
+            <span className="text-2xl font-black font-mono text-slate-800">{totalConversions.toLocaleString()} {t("insights.unitSold")}</span>
             <span className="text-[10px] text-emerald-600 font-bold block flex items-center gap-0.5">
               <TrendingUp className="w-3.5 h-3.5" />
-              Sales velocity active
+              {t("insights.kpiSalesVelocity")}
             </span>
           </div>
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
@@ -107,9 +109,9 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
         {/* Metric 3 */}
         <div className="bg-white p-5 rounded-2xl border border-slate-150 flex justify-between items-center">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Average Click Conversion</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">{t("insights.kpiActive")}</span>
             <span className="text-2xl font-black font-mono text-slate-800">{averageConversionRate}%</span>
-            <span className="text-[10px] text-slate-400 block font-medium">Inquiry-to-purchase probability</span>
+            <span className="text-[10px] text-slate-400 block font-medium">{t("insights.kpiConvHelp")}</span>
           </div>
           <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
             <Activity className="w-5 h-5" />
@@ -124,14 +126,14 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
             <div>
               <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <BarChart4 className="w-4 h-4 text-orange-500" />
-                "Clicked On" Customer Attention Spectrum
+                {t("insights.c1Title")}
               </h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">Comparing dynamic click view ratios against final retail checkouts per item.</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{t("insights.c1Subtitle")}</p>
             </div>
-            
+
             <div className="flex items-center gap-3 text-[10px] font-bold uppercase font-mono">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-orange-500 rounded"></span> Clicks (views)</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-emerald-505 rounded"></span> Purchases (sales)</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-orange-500 rounded"></span> {t("insights.c1Clicks")}</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-emerald-505 rounded"></span> {t("insights.c1Purchases")}</span>
             </div>
           </div>
 
@@ -151,7 +153,7 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
                         {/* Labels row */}
                         <div className="flex justify-between font-semibold text-slate-700 font-mono text-[11px]">
                           <span>{prod.name}</span>
-                          <span className="text-slate-400 font-medium">({prod.viewsCount} views / {prod.salesCount} conversions)</span>
+                          <span className="text-slate-400 font-medium">{t("insights.c1RowSuffix", { views: prod.viewsCount, conv: prod.salesCount })}</span>
                         </div>
                         {/* Dual bars row */}
                         <div className="h-6 bg-slate-50 border border-slate-100 rounded-lg flex flex-col justify-center px-1.5 gap-0.5">
@@ -173,11 +175,11 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
 
                 {/* Legend indicator help */}
                 <p className="text-[10px] text-slate-450 italic font-medium leading-relaxed bg-slate-55 p-3 rounded-xl border border-slate-100">
-                  *Purchase units are scaled (5x count) relative to views to enable easy visual alignment analysis of the Conversion ratios on standard screens.
+                  {t("insights.c1ScalingNote")}
                 </p>
               </div>
             ) : (
-              <div className="py-12 text-center text-slate-400 italic">Configure inventory items to stream attention graphs.</div>
+              <div className="py-12 text-center text-slate-400 italic">{t("insights.c1Empty")}</div>
             )}
           </div>
         </div>
@@ -187,9 +189,9 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
           <div>
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <Search className="w-4 h-4 text-orange-500 animate-pulse" />
-              "Searched For" Buyer Lookup Density
+              {t("insights.c2Title")}
             </h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Most common organic queries guiding active buyers to your catalog items.</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{t("insights.c2Sub")}</p>
           </div>
 
           <div className="space-y-3.5 pt-2">
@@ -200,7 +202,7 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
                     {term.term}
                   </span>
                   <div className="flex gap-1.5 items-center font-mono text-[10px] shrink-0">
-                    <span className="font-extrabold text-slate-800">{term.count} lookups</span>
+                    <span className="font-extrabold text-slate-800">{t("insights.c2Lookups", { n: term.count })}</span>
                     <span className="text-emerald-700 bg-emerald-50 font-bold rounded border border-emerald-100 px-1 py-0.2">{term.trend}</span>
                   </div>
                 </div>
@@ -221,9 +223,9 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
           <div>
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <DollarSign className="w-4 h-4 text-orange-500" />
-              "Competition Looked At" Competitive Spread Analysis
+              {t("insights.c3Title")}
             </h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Mapping our current list prices relative to immediate competitor spreads. A tighter range indicates pricing compression.</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{t("insights.c3Sub")}</p>
           </div>
 
           {/* Handcarved spectrum grid */}
@@ -244,14 +246,14 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
                   <div className="flex justify-between items-start gap-1">
                     <span className="text-[11px] font-bold text-slate-800 truncate block max-w-[120px]">{prod.name}</span>
                     <span className="text-[9px] font-mono font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded uppercase border border-indigo-100 shrink-0">
-                      ID: {prod.id}
+                      {t("insights.idLabel", { id: prod.id })}
                     </span>
                   </div>
 
                   {/* Horizontal visual slider spectrum */}
                   <div className="relative h-12 bg-white border border-slate-200/60 rounded-xl flex items-center px-3.5">
                     <div className="absolute left-2.5 text-[8.5px] font-mono leading-none">
-                      <span className="text-slate-400 block uppercase font-sans">Min</span>
+                      <span className="text-slate-400 block uppercase font-sans">{t("insights.c3Min")}</span>
                       <span className="font-bold text-slate-600">${minVal.toFixed(1)}</span>
                     </div>
 
@@ -261,29 +263,29 @@ export default function StorefrontInsights({ products }: StorefrontInsightsProps
                         style={{ 
                           left: `${((prod.price - minVal) / (maxVal - minVal || 1)) * 100}%` 
                         }}
-                        title={`Our Price: $${prod.price}`}
+                        title={t("insights.c3OurPriceTitle", { price: prod.price })}
                       />
                     </div>
 
                     <div className="absolute right-2.5 text-right text-[8.5px] font-mono leading-none">
-                      <span className="text-slate-400 block uppercase font-sans">Max</span>
+                      <span className="text-slate-400 block uppercase font-sans">{t("insights.c3Max")}</span>
                       <span className="font-bold text-slate-600">${maxVal.toFixed(1)}</span>
                     </div>
                   </div>
 
                   {/* Quick details aggregates */}
                   <div className="flex justify-between items-center text-[10.5px] font-mono font-bold">
-                    <span className="text-slate-450 font-normal">Our list Price:</span>
+                    <span className="text-slate-450 font-normal">{t("insights.c3OurPrice")}</span>
                     <span className="text-orange-600 font-extrabold">${prod.price.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center text-[10.5px] font-mono font-bold">
-                    <span className="text-slate-450 font-normal">Competitors Avg:</span>
+                    <span className="text-slate-450 font-normal">{t("insights.c3CompAvg")}</span>
                     <span className="text-slate-650 font-bold">${avgComp.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center text-[10.5px] font-mono font-bold pt-1.5 border-t border-slate-200/50">
-                    <span className="text-slate-500 font-normal">Margin Position:</span>
+                    <span className="text-slate-500 font-normal">{t("insights.c3Margin")}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[9.5px] uppercase ${prod.price < avgComp ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>
-                      {prod.price < avgComp ? "Under Competitors" : "Premium Tier"}
+                      {prod.price < avgComp ? t("insights.c3Under") : t("insights.c3Premium")}
                     </span>
                   </div>
                 </div>

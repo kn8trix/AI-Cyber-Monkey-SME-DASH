@@ -779,24 +779,24 @@ export default function CustomerStorefront({
                   value={typingUrl}
                   onChange={(e) => setTypingUrl(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-850 rounded-xl py-2 pl-12 sm:pl-24 pr-16 text-xs text-slate-300 font-mono focus:outline-none focus:border-indigo-555 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-inner"
-                  placeholder="Type a web address, e.g. https://www.cybermonkey.io"
+                  placeholder={t("storefront.urlPlaceholder")}
                 />
 
                 <div className="absolute right-3 text-[10px] font-mono text-slate-500 bg-slate-900 border border-slate-800 rounded-md px-1.5 py-0.5 select-none leading-none">
-                  Press Enter
+                  {t("storefront.pressEnter")}
                 </div>
               </div>
             </form>
 
             {/* User profile / Ext extensions toolbar */}
             <div className="hidden md:flex items-center gap-2 text-slate-450 shrink-0">
-              <div className="w-6 h-6 rounded-md bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px] font-bold font-mono" title="AdBlock Enabled">
+              <div className="w-6 h-6 rounded-md bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px] font-bold font-mono" title={t("storefront.adBlockTooltip")}>
                 🛡️
               </div>
-              <div className="w-6 h-6 rounded-md bg-yellow-600/10 border border-yellow-500/20 text-yellow-500 flex items-center justify-center text-[10px]" title="Bookmarked">
+              <div className="w-6 h-6 rounded-md bg-yellow-600/10 border border-yellow-500/20 text-yellow-500 flex items-center justify-center text-[10px]" title={t("storefront.bookmarkTooltip")}>
                 ★
               </div>
-              <div className="w-6.5 h-6.5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-300" title="Browser Operator User">
+              <div className="w-6.5 h-6.5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-300" title={t("storefront.browserOperatorTooltip")}>
                 👤
               </div>
             </div>
@@ -1125,7 +1125,7 @@ export default function CustomerStorefront({
                 className="flex items-center gap-1 hover:text-white cursor-pointer transition-colors text-[11px]"
               >
                 <User className="w-4 h-4 text-orange-500 stroke-[2.2]" />
-                <span className="font-bold">Welcome, Sign In</span>
+                <span className="font-bold">{t("storefront.welcomeHeaderSignIn")}</span>
               </button>
             )}
 
@@ -1139,7 +1139,7 @@ export default function CustomerStorefront({
                   </span>
                 )}
               </div>
-              <span className="font-mono text-[11px] text-slate-200">Cart</span>
+              <span className="font-mono text-[11px] text-slate-200">{t("storefront.cartHeader")}</span>
             </div>
 
         </div>
@@ -1586,10 +1586,10 @@ export default function CustomerStorefront({
                           setSelectedProductId(null);
                         }}
                         className="w-full py-2.5 bg-yellow-400 hover:bg-yellow-500 font-bold text-xs rounded-full flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-slate-900 border border-yellow-500 shadow-xs"
-                        title="Add to shopping cart"
+                        title={t("storefront.addToCart")}
                       >
                         <ShoppingBag className="w-3.5 h-3.5 shrink-0 text-slate-900" />
-                        Add to Cart
+                        {t("storefront.addToCart")}
                       </button>
 
                       <button
@@ -1598,22 +1598,22 @@ export default function CustomerStorefront({
                         }}
                         className="w-full py-2.5 bg-orange-500 hover:bg-orange-650 font-bold text-xs rounded-full flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-white shadow-xs"
                       >
-                        Buy Now
+                        {t("storefront.buyNow")}
                       </button>
                     </div>
 
                     <div className="text-[10px] text-slate-500 divide-y divide-slate-100 font-mono space-y-1.5 pt-2">
                       <div className="flex justify-between items-center py-1">
-                        <span>Ships from</span>
-                        <span className="font-semibold text-slate-800">Cyber Monkey Logistics</span>
+                        <span>{t("storefront.shipsFrom")}</span>
+                        <span className="font-semibold text-slate-800">{t("storefront.shipsFromValue")}</span>
                       </div>
                       <div className="flex justify-between items-center py-1">
-                        <span>Sold by</span>
-                        <span className="font-semibold text-slate-800">Cyber Monkey</span>
+                        <span>{t("storefront.soldBy")}</span>
+                        <span className="font-semibold text-slate-800">{t("storefront.soldByValue")}</span>
                       </div>
                       <div className="flex justify-between items-center py-1">
-                        <span>Returns</span>
-                        <span className="text-cyan-600 font-bold hover:underline cursor-pointer">30-day Free Return</span>
+                        <span>{t("storefront.returnsLabel")}</span>
+                        <span className="text-cyan-600 font-bold hover:underline cursor-pointer">{t("storefront.returnsValue")}</span>
                       </div>
                     </div>
 
@@ -1633,7 +1633,7 @@ export default function CustomerStorefront({
                       activeTab === "specs" ? "bg-white text-black shadow-xs font-black" : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    Product Details
+                    {t("storefront.tabSpecs")}
                   </button>
                   <button
                     onClick={() => setActiveTab("reviews")}
@@ -1641,7 +1641,7 @@ export default function CustomerStorefront({
                       activeTab === "reviews" ? "bg-white text-black shadow-xs font-black" : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    Customer reviews ({reviews.length})
+                    {t("storefront.tabReviews", { count: reviews.length })}
                   </button>
                   <button
                     onClick={() => setActiveTab("similar")}
@@ -1649,51 +1649,51 @@ export default function CustomerStorefront({
                       activeTab === "similar" ? "bg-white text-black shadow-xs font-black" : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    Compare Similar Products
+                    {t("storefront.tabSimilar")}
                   </button>
                 </div>
 
                 {/* Tab content panel A: SPECS */}
                 {activeTab === "specs" && (
                   <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 lg:p-6 space-y-4">
-                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest font-mono">PRODUCT SPECIFICATION TABLE</h3>
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest font-mono">{t("storefront.specsTitle")}</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
                       <div className="space-y-2">
                         <div className="flex justify-between border-b pb-1.5 border-slate-200">
-                          <span className="text-slate-400 font-medium">Manufacturer Brand</span>
-                          <span className="font-bold text-slate-800">Cyber Monkey</span>
+                          <span className="text-slate-400 font-medium">{t("storefront.specsBrand")}</span>
+                          <span className="font-bold text-slate-800">{t("storefront.specsBrandValue")}</span>
                         </div>
                         <div className="flex justify-between border-b pb-1.5 border-slate-200">
-                          <span className="text-slate-400 font-medium">Product Series</span>
-                          <span className="font-bold text-slate-800">CMS-{prod.id}-SPECIAL</span>
+                          <span className="text-slate-400 font-medium">{t("storefront.specsSeries")}</span>
+                          <span className="font-bold text-slate-800">{t("storefront.specsSeriesValue", { id: prod.id })}</span>
                         </div>
                         <div className="flex justify-between border-b pb-1.5 border-slate-200">
-                          <span className="text-slate-400 font-medium">Hardware Class</span>
+                          <span className="text-slate-400 font-medium">{t("storefront.specsHardware")}</span>
                           <span className="font-bold text-slate-800">{prod.category}</span>
                         </div>
                         <div className="flex justify-between border-b pb-1.5 border-slate-200">
-                          <span className="text-slate-400 font-medium">Operating Standard</span>
-                          <span className="font-bold text-slate-800">Consumer Compliant</span>
+                          <span className="text-slate-400 font-medium">{t("storefront.specsStandard")}</span>
+                          <span className="font-bold text-slate-800">{t("storefront.specsStandardValue")}</span>
                         </div>
                       </div>
 
                       <div className="space-y-2">
                         <div className="flex justify-between border-b pb-1.5 border-slate-200">
-                          <span className="text-slate-400 font-medium">Shipping Carrier</span>
-                          <span className="font-bold text-slate-800">Cyber Monkey Logistics / Prime</span>
+                          <span className="text-slate-400 font-medium">{t("storefront.specsShipping")}</span>
+                          <span className="font-bold text-slate-800">{t("storefront.specsShippingValue")}</span>
                         </div>
                         <div className="flex justify-between border-b pb-1.5 border-slate-200">
-                          <span className="text-slate-400 font-medium">Warranty Protection</span>
-                          <span className="font-bold text-slate-800">1-Year Cyber Monkey Warranty</span>
+                          <span className="text-slate-400 font-medium">{t("storefront.specsWarranty")}</span>
+                          <span className="font-bold text-slate-800">{t("storefront.specsWarrantyValue")}</span>
                         </div>
                         <div className="flex justify-between border-b pb-1.5 border-slate-200">
-                          <span className="text-slate-400 font-medium">Returns Policy</span>
-                          <span className="font-bold text-slate-800">30-day Free Guarantee</span>
+                          <span className="text-slate-400 font-medium">{t("storefront.specsReturns")}</span>
+                          <span className="font-bold text-slate-800">{t("storefront.specsReturnsValue")}</span>
                         </div>
                         <div className="flex justify-between border-b pb-1.5 border-slate-200">
-                          <span className="text-slate-400 font-medium">Item Weight</span>
-                          <span className="font-bold text-slate-800">1.2 lbs</span>
+                          <span className="text-slate-400 font-medium">{t("storefront.specsWeight")}</span>
+                          <span className="font-bold text-slate-800">{t("storefront.specsWeightValue")}</span>
                         </div>
                       </div>
                     </div>
@@ -1707,7 +1707,7 @@ export default function CustomerStorefront({
                     {/* Left aggregate rating breakdown card */}
                     <div className="md:col-span-4 bg-slate-50 border border-slate-200 rounded-2xl p-4.5 space-y-4 font-mono text-xs">
                       <div>
-                        <h4 className="font-black text-sm text-slate-900">Customer Reviews</h4>
+                        <h4 className="font-black text-sm text-slate-900">{t("storefront.reviewsTitle")}</h4>
                         <div className="flex items-center gap-1.5 mt-1">
                           {Array.from({ length: 5 }).map((_, i) => (
                             <Star 
@@ -1715,36 +1715,36 @@ export default function CustomerStorefront({
                               className={`w-4 h-4 ${i < Math.round(Number(avgRating)) ? "fill-amber-400 text-amber-500" : "text-slate-200"}`} 
                             />
                           ))}
-                          <span className="font-bold text-slate-705 text-slate-900 ml-1">{avgRating} out of 5</span>
+                          <span className="font-bold text-slate-705 text-slate-900 ml-1">{t("storefront.reviewsOutOfFive", { rating: avgRating })}</span>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{reviews.length} total rating scores logged.</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{t("storefront.reviewsTotalLogged", { count: reviews.length })}</p>
                       </div>
 
                       {/* Dummy Distribution Bar */}
                       <div className="space-y-2 text-[11px]">
                         <div className="flex items-center gap-2">
-                          <span className="w-10 text-slate-500 text-right">5 star</span>
+                          <span className="w-10 text-slate-500 text-right">{t("storefront.reviewsStarsLabel")}</span>
                           <div className="flex-1 h-2.5 rounded bg-slate-200 overflow-hidden">
                             <div className="h-full bg-amber-400" style={{ width: "80%" }}></div>
                           </div>
                           <span className="w-6 text-slate-400">80%</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="w-10 text-slate-500 text-right">4 star</span>
+                          <span className="w-10 text-slate-500 text-right">{t("storefront.reviewsStar4")}</span>
                           <div className="flex-1 h-2.5 rounded bg-slate-200 overflow-hidden text-right">
                             <div className="h-full bg-amber-400" style={{ width: "15%" }}></div>
                           </div>
                           <span className="w-6 text-slate-400">15%</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="w-10 text-slate-500 text-right">3 star</span>
+                          <span className="w-10 text-slate-500 text-right">{t("storefront.reviewsStar3")}</span>
                           <div className="flex-1 h-2.5 rounded bg-slate-200 overflow-hidden">
                             <div className="h-full bg-amber-400" style={{ width: "5%" }}></div>
                           </div>
                           <span className="w-6 text-slate-400">5%</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="w-10 text-slate-500 text-right">2 star</span>
+                          <span className="w-10 text-slate-500 text-right">{t("storefront.reviewsStar2")}</span>
                           <div className="flex-1 h-2.5 rounded bg-slate-200 overflow-hidden">
                             <div className="h-full bg-amber-400" style={{ width: "0%" }}></div>
                           </div>
@@ -1759,14 +1759,14 @@ export default function CustomerStorefront({
                       
                       {/* Live Review Feed list */}
                       <div className="space-y-4">
-                        <h4 className="text-xs font-bold text-slate-900 font-mono tracking-widest uppercase">OPERATOR FEEDBACK LOGS (LIVE)</h4>
+                        <h4 className="text-xs font-bold text-slate-900 font-mono tracking-widest uppercase">{t("storefront.reviewsLogTitle")}</h4>
                         
                         <div className="space-y-3">
                           {reviews.map((rev) => (
                             <div key={rev.id} className="border-b border-slate-100 pb-3 text-xs font-sans">
                               <div className="flex items-center gap-2">
                                 <span className="font-extrabold text-slate-805 text-slate-900">{rev.author}</span>
-                                <span className="text-[10px] text-slate-400 font-mono">on {rev.date}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">{t("storefront.reviewsOn")} {rev.date}</span>
                               </div>
                               <div className="flex items-center gap-1 mt-0.5 text-amber-500">
                                 {Array.from({ length: 5 }).map((_, i) => (
@@ -1779,11 +1779,11 @@ export default function CustomerStorefront({
                               </div>
                               <p className="text-slate-600 mt-1 leading-normal pl-1 border-l-2 border-slate-100 italic">{rev.text}</p>
                               <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-400 font-mono">
-                                <span className="text-emerald-600 font-bold bg-emerald-50 px-1 rounded">✓ Verified Dispatch Purchase</span>
+                                <span className="text-emerald-600 font-bold bg-emerald-50 px-1 rounded">{t("storefront.reviewsVerified")}</span>
                                 <span>•</span>
-                                <button type="button" className="hover:text-amber-600 text-slate-400">Helpful ({rev.helpfulCount})</button>
+                                <button type="button" className="hover:text-amber-600 text-slate-400">{t("storefront.reviewsHelpful", { count: rev.helpfulCount })}</button>
                                 <span>•</span>
-                                <button type="button" className="hover:text-amber-600 text-slate-400 font-mono">Report telemetry anomaly</button>
+                                <button type="button" className="hover:text-amber-600 text-slate-400 font-mono">{t("storefront.reviewsReport")}</button>
                               </div>
                             </div>
                           ))}
@@ -1792,43 +1792,43 @@ export default function CustomerStorefront({
 
                       {/* Add telemetry review form */}
                       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4.5 space-y-3.5 mt-4">
-                        <h4 className="text-xs font-extrabold text-slate-900 font-mono uppercase tracking-wide">Write an Amazon-style Product Review</h4>
+                        <h4 className="text-xs font-extrabold text-slate-900 font-mono uppercase tracking-wide">{t("storefront.reviewProductTitle")}</h4>
                         
                         <form onSubmit={(e) => handleAddProductReview(e, prod.id)} className="space-y-3">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
                             <div className="space-y-1">
-                              <label className="text-slate-500 font-bold">Review Headline</label>
+                              <label className="text-slate-500 font-bold">{t("storefront.reviewHeadlineLabel")}</label>
                               <input 
                                 type="text"
                                 required
-                                placeholder="e.g. Blazing fast transfer velocities"
+                                placeholder={t("storefront.reviewTitlePlaceholder")}
                                 value={newReviewTitle}
                                 onChange={(e) => setNewReviewTitle(e.target.value)}
                                 className="w-full text-xs p-2.5 border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-hidden focus:border-orange-500 font-mono"
                               />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-slate-500 font-bold">Star Rating Indicator</label>
+                              <label className="text-slate-500 font-bold">{t("storefront.reviewStarLabel")}</label>
                               <select
                                 value={newReviewRating}
                                 onChange={(e) => setNewReviewRating(Number(e.target.value))}
                                 className="w-full text-xs p-2.5 border border-slate-300 rounded-lg bg-white text-slate-800 font-bold font-mono focus:outline-hidden focus:border-orange-500"
                               >
-                                <option value="5">⭐⭐⭐⭐⭐ (5 - Exceptional)</option>
-                                <option value="4">⭐⭐⭐⭐ (4 - Highly Stable)</option>
-                                <option value="3">⭐⭐⭐ (3 - Acceptable)</option>
-                                <option value="2">⭐⭐ (2 - Minor Latency)</option>
-                                <option value="1">⭐ (1 - Needs Recalibration)</option>
+                                <option value="5">{t("storefront.reviewStars5")}</option>
+                                <option value="4">{t("storefront.reviewStars4")}</option>
+                                <option value="3">{t("storefront.reviewStars3")}</option>
+                                <option value="2">{t("storefront.reviewStars2")}</option>
+                                <option value="1">{t("storefront.reviewStars1")}</option>
                               </select>
                             </div>
                           </div>
 
                           <div className="space-y-1 text-xs">
-                            <label className="font-bold text-slate-500 font-mono">Your review details (Pipes instantly into operational logs feed)</label>
+                            <label className="font-bold text-slate-500 font-mono">{t("storefront.reviewDetailsLabel")}</label>
                             <textarea
                               required
                               rows={3}
-                              placeholder="Describe testing metrics under synthetic workloads. Note system coherence spikes, casing heat coefficients, and general firmware integration ease."
+                              placeholder={t("storefront.reviewBodyPlaceholder")}
                               value={newReviewText}
                               onChange={(e) => setNewReviewText(e.target.value)}
                               className="w-full p-2.5 border border-slate-300 rounded-lg bg-white text-slate-805 text-slate-800 focus:outline-hidden focus:border-orange-500"
@@ -1837,7 +1837,7 @@ export default function CustomerStorefront({
 
                           {reviewSuccessMsg && (
                             <div className="p-2 bg-emerald-50 text-emerald-800 text-[10.5px] rounded-lg border border-emerald-200 font-mono leading-relaxed">
-                              ✓ Review submitted successfully! Star ratings updated, telemetry dispatched to operational system.
+                              {t("storefront.reviewPostSubmit")}
                             </div>
                           )}
 
@@ -1845,7 +1845,7 @@ export default function CustomerStorefront({
                             type="submit"
                             className="py-2 px-5 bg-black hover:bg-slate-800 text-white rounded-lg text-xs font-bold font-mono cursor-pointer transition-colors"
                           >
-                            Post Product Review
+                            {t("storefront.reviewPostButton")}
                           </button>
                         </form>
                       </div>
@@ -1857,7 +1857,7 @@ export default function CustomerStorefront({
                 {/* Tab content panel C: SIMILAR HARDWARE */}
                 {activeTab === "similar" && (
                   <div className="space-y-4">
-                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest font-mono">SIMILAR HARDWARE INTEGRATIONS COMPARISON CHART</h3>
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest font-mono">{t("storefront.similarTitle")}</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {products.filter(p => p.id !== prod.id).slice(0, 3).map((item) => (
@@ -1876,7 +1876,7 @@ export default function CustomerStorefront({
                                ) : (
                                  <div className="flex flex-col items-center justify-center text-slate-505 gap-1 select-none">
                                    <Cpu className="w-8 h-8 text-orange-500 animate-pulse" />
-                                   <span className="text-[8px] uppercase tracking-wider font-extrabold text-slate-400">Micro-Mod</span>
+                                   <span className="text-[8px] uppercase tracking-wider font-extrabold text-slate-400">{t("storefront.similarMicroMod")}</span>
                                  </div>
                                )}
                              </div>
@@ -1893,7 +1893,7 @@ export default function CustomerStorefront({
                             }}
                             className="w-full py-1.5 mt-3 bg-slate-200 hover:bg-orange-500 hover:text-white transition-all text-[11px] font-bold font-mono rounded-lg cursor-pointer"
                           >
-                            Add to Cart
+                            {t("storefront.addToCart")}
                           </button>
                         </div>
                       ))}
@@ -1912,23 +1912,23 @@ export default function CustomerStorefront({
             <div className="max-w-[1300px] w-full mx-auto px-4 lg:px-6 pt-4">
               <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/5 to-amber-500/15 border border-amber-505/30 border-amber-500/30 rounded-2xl p-4.5 relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="absolute top-1 left-2 flex items-center gap-1.5">
-                  <span className="text-[7.5px] font-black text-amber-600 tracking-wider uppercase font-mono bg-amber-500/10 px-1.5 border border-amber-500/20 rounded animate-pulse">Ad</span>
-                  <span className="text-[8px] text-slate-500 font-bold uppercase font-mono">Sponsored Monetization</span>
+                  <span className="text-[7.5px] font-black text-amber-600 tracking-wider uppercase font-mono bg-amber-500/10 px-1.5 border border-amber-500/20 rounded animate-pulse">{t("storefront.welcomeAdLabel")}</span>
+                  <span className="text-[8px] text-slate-500 font-bold uppercase font-mono">{t("storefront.welcomeAdSponsored")}</span>
                 </div>
                 <div className="flex items-center gap-3.5 mt-2 sm:mt-0">
                   <div className="w-11 h-11 rounded-xl bg-orange-600 flex items-center justify-center text-white text-xl shadow-md shrink-0">
                     🥤
                   </div>
                   <div className="text-left space-y-0.5">
-                    <h4 className="text-xs font-black text-slate-800 font-sans tracking-tight">CYBERMONKEY SODA EXTREME</h4>
-                    <p className="text-[10px] text-slate-500 tracking-tight font-medium leading-none">Overclock your visual &amp; synaptic compilers. 0g Sugar, 100% Code Speed.</p>
+                    <h4 className="text-xs font-black text-slate-800 font-sans tracking-tight">{t("storefront.welcomeAdTitle")}</h4>
+                    <p className="text-[10px] text-slate-500 tracking-tight font-medium leading-none">{t("storefront.welcomeAdText")}</p>
                   </div>
                 </div>
                 <button 
-                  onClick={() => alert("Simulation: Redirecting to CyberMonkey monorepo soda catalog...")}
+                  onClick={() => alert(t("storefront.welcomeAdRedirect"))}
                   className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-[10px] uppercase tracking-wider rounded-xl transition-all font-mono shadow-sm shrink-0 cursor-pointer"
                 >
-                  Claim 1 Free Can
+                  {t("storefront.welcomeAdButton")}
                 </button>
               </div>
             </div>
@@ -1954,9 +1954,9 @@ export default function CustomerStorefront({
                 )}
               </div>
               <div>
-                <p className="text-xs text-slate-400 leading-tight">Welcome to Cyber Monkey</p>
+                <p className="text-xs text-slate-400 leading-tight">{t("storefront.welcomeBrand")}</p>
                 <h4 className="text-xs font-black text-slate-900 truncate font-sans">
-                  {customerSession ? `Hi, ${customerSession.name}!` : "Sign in to see customized deals"}
+                  {customerSession ? t("storefront.welcomeSignedIn", { name: customerSession.name }) : t("storefront.welcomeSignInPrompt")}
                 </h4>
               </div>
             </div>
@@ -1973,7 +1973,7 @@ export default function CustomerStorefront({
                     className="py-2 bg-black hover:bg-slate-800 text-white font-extrabold text-[11px] rounded-full text-center transition-all cursor-pointer font-mono"
                     id="welcome_register_btn"
                   >
-                    Register
+                    {t("storefront.welcomeRegister")}
                   </button>
                   <button
                     onClick={() => {
@@ -1983,41 +1983,41 @@ export default function CustomerStorefront({
                     className="py-2 border border-slate-300 hover:border-slate-800 hover:bg-slate-55 text-slate-800 font-extrabold text-[11px] rounded-full text-center transition-all cursor-pointer font-mono"
                     id="welcome_signin_btn"
                   >
-                    Sign in
+                    {t("storefront.welcomeSignInBtn")}
                   </button>
                 </div>
 
                 {/* Social register login badges (Exactly matches the row of circles in the image: Blue Facebook, Cyan Twitter/Telegram, Black Apple, Red Google) */}
                 <div className="space-y-2">
                   <p className="text-[10px] text-slate-400 text-center font-semibold uppercase tracking-wider">
-                    Or connection node via:
+                    {t("storefront.welcomeSocialOr")}
                   </p>
                   <div className="flex justify-center items-center gap-2.5">
                     <button
                       onClick={() => handleSocialClick("Facebook")}
                       className="w-8 h-8 rounded-full bg-[#1877f2] text-white flex items-center justify-center font-black text-xs hover:opacity-90 active:scale-95 transition-all shadow-xs"
-                      title="Facebook Node Verification"
+                      title={t("storefront.welcomeSocialFb")}
                     >
                       f
                     </button>
                     <button
                       onClick={() => handleSocialClick("Twitter")}
                       className="w-8 h-8 rounded-full bg-[#1da1f2] text-white flex items-center justify-center font-black text-xs hover:opacity-90 active:scale-95 transition-all shadow-xs"
-                      title="Twitter / X Channel"
+                      title={t("storefront.welcomeSocialTwitter")}
                     >
                       t
                     </button>
                     <button
                       onClick={() => handleSocialClick("Apple")}
                       className="w-8 h-8 rounded-full bg-[#000000] text-white flex items-center justify-center font-black text-xs hover:opacity-90 active:scale-95 transition-all shadow-xs"
-                      title="Apple Crypt-Key Auth"
+                      title={t("storefront.welcomeSocialApple")}
                     >
                       
                     </button>
                     <button
                       onClick={() => handleSocialClick("Google")}
                       className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-500 flex items-center justify-center font-bold text-xs hover:border-slate-450 active:scale-95 transition-all shadow-xs"
-                      title="Sovereign Google OAuth"
+                      title={t("storefront.welcomeSocialGoogle")}
                     >
                       G
                     </button>
@@ -2027,13 +2027,13 @@ export default function CustomerStorefront({
             ) : (
               <div className="space-y-2 pt-1 border-t border-slate-100">
                 <p className="text-[10px] text-slate-500 font-mono">
-                  Access level: <span className="font-bold text-emerald-600">Active Operator Node</span>
+                  {t("storefront.accessLevel")} <span className="font-bold text-emerald-600">{t("storefront.accessActive")}</span>
                 </p>
                 <button
                   onClick={handleLogoutCustomer}
                   className="w-full py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] rounded-full border border-rose-200 transition-all font-mono"
                 >
-                  Logoff Session
+                  {t("storefront.welcomeLogoff")}
                 </button>
               </div>
             )}
@@ -2043,9 +2043,9 @@ export default function CustomerStorefront({
           <div className={`${cardBgClass} rounded-2xl p-4 space-y-3`}>
             <div className="flex items-center justify-between">
               <h3 className={`text-sm font-black ${clr.primaryText} tracking-tight flex items-center gap-1 font-mono uppercase`}>
-                <Percent className={`w-4 h-4 ${clr.primaryText}`} /> Welcome Deal
+                <Percent className={`w-4 h-4 ${clr.primaryText}`} /> {t("storefront.welcomeDealTitle")}
               </h3>
-              <span className="text-[10px] text-slate-400 font-semibold uppercase font-mono">Exclusive Price</span>
+              <span className="text-[10px] text-slate-400 font-semibold uppercase font-mono">{t("storefront.welcomeDealExclusive")}</span>
             </div>
 
             {products.length > 0 ? (
@@ -2059,7 +2059,7 @@ export default function CustomerStorefront({
                 <div className="h-32 bg-slate-950 rounded-lg overflow-hidden relative">
                   <img
                     src={products[products.length - 1].imageUrl || "https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&q=80&w=300"}
-                    alt="Exclusive active deal"
+                    alt={t("storefront.welcomeDealAlt")}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     referrerPolicy="no-referrer"
                   />
@@ -2078,10 +2078,10 @@ export default function CustomerStorefront({
                       ${(products[products.length - 1].price * 0.3).toFixed(2)}
                     </span>
                     <span className="text-[10px] text-slate-400 line-through font-mono">
-                      MSRP ${(products[products.length - 1].price).toFixed(2)}
+                      {t("storefront.welcomeDealMsrp", { price: (products[products.length - 1].price).toFixed(2) })}
                     </span>
                   </div>
-                  <p className="text-[10px] text-red-500 font-medium font-mono">Limited welcome quota remaining</p>
+                  <p className="text-[10px] text-red-500 font-medium font-mono">{t("storefront.welcomeDealQuota")}</p>
                 </div>
 
                 <button
@@ -2091,11 +2091,11 @@ export default function CustomerStorefront({
                   }}
                   className={`w-full py-1.5 ${clr.primaryBg} ${clr.primaryHoverBg} ${activeProfile.primaryColor === 'cyan' || activeProfile.primaryColor === 'amber' ? 'text-slate-900' : 'text-white'} text-[11px] font-black rounded-lg transition-all signature-deal-btn cursor-pointer font-mono`}
                 >
-                  Claim Active Deal
+                  {t("storefront.welcomeDealClaim")}
                 </button>
               </div>
             ) : (
-              <p className="text-xs text-slate-400 font-mono">No discounted custom systems listed currently.</p>
+              <p className="text-xs text-slate-400 font-mono">{t("storefront.welcomeDealEmpty")}</p>
             )}
           </div>
 
@@ -2113,12 +2113,12 @@ export default function CustomerStorefront({
               <div>
                 <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                   <span className={`w-2.5 h-2.5 rounded-full ${clr.primaryBg}`}></span>
-                  Bestsellers
+                  {t("storefront.bestsellersTitle")}
                 </h3>
-                <p className="text-[11px] text-slate-500">Get hardware discounts on popular items</p>
+                <p className="text-[11px] text-slate-500">{t("storefront.bestsellersSubtitle")}</p>
               </div>
               <span className={`text-[11px] font-bold ${clr.primaryText} ${clr.primaryLightBg} px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono`}>
-                Popular Grid
+                {t("storefront.bestsellersBadge")}
               </span>
             </div>
 
@@ -2130,31 +2130,31 @@ export default function CustomerStorefront({
               <div className="flex justify-center items-end gap-1.5 py-4 relative z-10">
                 <div className="w-14 h-28 bg-slate-900 border border-slate-800 rounded-md shadow-lg overflow-hidden transform rotate-[-4deg] relative hover:rotate-0 transition-transform cursor-pointer">
                   <img src="https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&q=80&w=200" alt="Device segment A" referrerPolicy="no-referrer" className="w-full h-full object-cover opacity-90" />
-                  <span className="absolute bottom-1 left-1 text-[8px] bg-black/85 text-orange-500 px-1 rounded font-mono">4nm</span>
+                  <span className="absolute bottom-1 left-1 text-[8px] bg-black/85 text-orange-500 px-1 rounded font-mono">{t("storefront.bestsellersBadge4nm")}</span>
                 </div>
                 <div className="w-16 h-32 bg-slate-800 border-2 border-orange-500 rounded-md shadow-2xl overflow-hidden relative z-10 hover:scale-105 transition-transform cursor-pointer">
                   <img src="https://images.unsplash.com/photo-1593508512255-86ab42a8e620?auto=format&fit=crop&q=80&w=200" alt="Device segment B" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                  <span className="absolute top-1 left-1.5 text-[8px] bg-orange-500 text-white px-1.5 rounded-full font-bold font-mono">BEST</span>
+                  <span className="absolute top-1 left-1.5 text-[8px] bg-orange-500 text-white px-1.5 rounded-full font-bold font-mono">{t("storefront.bestsellersBest")}</span>
                 </div>
                 <div className="w-14 h-28 bg-slate-900 border border-slate-800 rounded-md shadow-lg overflow-hidden transform rotate-[4deg] relative hover:rotate-0 transition-transform cursor-pointer">
                   <img src="https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&q=80&w=200" alt="Device segment C" referrerPolicy="no-referrer" className="w-full h-full object-cover opacity-90" />
-                  <span className="absolute bottom-1 right-1 text-[8px] bg-black/85 text-orange-500 px-1 rounded font-mono">ANC</span>
+                  <span className="absolute bottom-1 right-1 text-[8px] bg-black/85 text-orange-500 px-1 rounded font-mono">{t("storefront.bestsellersBadgeAnc")}</span>
                 </div>
               </div>
 
               {/* Red absolutely-positioned AliExpress circular coupon discount tag */}
               <div className="absolute bottom-16 right-6 bg-red-600 text-white rounded-full flex flex-col items-center justify-center w-14 h-14 shadow-2xl shadow-red-500/40 border-2 border-white select-none animate-pulse">
-                <span className="text-[10px] font-semibold leading-none text-red-155">UP TO</span>
+                <span className="text-[10px] font-semibold leading-none text-red-155">{t("storefront.bestsellersUpTo")}</span>
                 <span className="text-sm font-black leading-none font-mono">-70%</span>
               </div>
 
               {/* Lineup footer details */}
               <div className="w-full text-center space-y-1 relative z-10 border-t border-slate-800/80 pt-3">
-                <h4 className="text-xs font-bold text-slate-100 font-mono tracking-wide uppercase">Cyber Monkey Core hardware bundle</h4>
+                <h4 className="text-xs font-bold text-slate-100 font-mono tracking-wide uppercase">{t("storefront.bestsellersBundleTitle")}</h4>
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-[11px] font-mono text-slate-400 line-through">$899.00</span>
                   <span className="font-extrabold text-xs text-orange-500 font-mono bg-orange-950/40 px-2 py-0.5 rounded">
-                    Special Bundle: $271.60
+                    {t("storefront.bestsellersBundleSpecial")}
                   </span>
                 </div>
               </div>
@@ -2162,7 +2162,7 @@ export default function CustomerStorefront({
 
             {/* List with live queue selectors for best selling items */}
             <h4 className={`text-[10px] font-extrabold pb-1.5 ${textMutedClass} uppercase tracking-widest font-mono`}>
-              ALL SYSTEM COMPONENTS ({filteredProducts.length} items found)
+              {t("storefront.bestsellersAllItems", { count: filteredProducts.length })}
             </h4>
             
             <div className={`pr-1`}>
@@ -2185,7 +2185,7 @@ export default function CustomerStorefront({
                         ) : (
                           <div className="w-full h-full flex items-center justify-center"><Cpu className="w-8 h-8 text-indigo-550" /></div>
                         )}
-                        <span className={`absolute top-1.5 left-1.5 ${clr.primaryBg} ${activeProfile.primaryColor === 'cyan' || activeProfile.primaryColor === 'amber' ? 'text-slate-900' : 'text-white'} font-mono text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-sm`}>HOT</span>
+                        <span className={`absolute top-1.5 left-1.5 ${clr.primaryBg} ${activeProfile.primaryColor === 'cyan' || activeProfile.primaryColor === 'amber' ? 'text-slate-900' : 'text-white'} font-mono text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-sm`}>{t("storefront.bestsellersHot")}</span>
                       </div>
                       
                       <div className="p-3.5 space-y-2 text-left">
@@ -2202,7 +2202,7 @@ export default function CustomerStorefront({
                             }}
                             className={`px-3 py-1 ${clr.primaryBg} ${clr.primaryHoverBg} ${activeProfile.primaryColor === 'cyan' || activeProfile.primaryColor === 'amber' ? 'text-slate-900' : 'text-white'} text-[9px] font-black uppercase rounded-lg cursor-pointer transition-colors`}
                           >
-                            Add
+                            {t("storefront.bestsellersAdd")}
                           </button>
                         </div>
                       </div>
@@ -2278,7 +2278,7 @@ export default function CustomerStorefront({
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-black"><Cpu className="w-8 h-8 text-rose-500 animate-pulse" /></div>
                         )}
-                        <span className="absolute top-2 left-2 bg-red-650 bg-red-600 text-white font-mono text-[9px] font-black uppercase px-2 border-2 border-black">DROP</span>
+                        <span className="absolute top-2 left-2 bg-red-650 bg-red-600 text-white font-mono text-[9px] font-black uppercase px-2 border-2 border-black">{t("storefront.bestsellersDrop")}</span>
                       </div>
                       <div className="text-left space-y-1">
                         <span className="text-[8.5px] bg-black text-white dark:bg-indigo-600 px-1.5 py-0.5 font-bold uppercase tracking-wider">{p.category}</span>
@@ -2294,7 +2294,7 @@ export default function CustomerStorefront({
                           }}
                           className="bg-black hover:bg-slate-800 text-white dark:bg-indigo-650 dark:bg-indigo-600 dark:hover:bg-indigo-700 p-2 px-3.5 border-2 border-black font-bold text-[10px] uppercase cursor-pointer"
                         >
-                          + ADD
+                          {t("storefront.bestsellersAddPlus")}
                         </button>
                       </div>
                     </div>
@@ -2331,7 +2331,7 @@ export default function CustomerStorefront({
                         <h4 className={`text-xs font-black truncate text-slate-800 dark:text-white group-hover:${clr.primaryText} transition-colors`}>{p.name}</h4>
                         <p className={`text-[9.5px] ${textMutedClass} leading-tight line-clamp-2`}>{p.desc}</p>
                         <div className="flex justify-between items-center pt-2.5 border-t border-dashed border-slate-200/20 mt-2">
-                          <span className="text-[9px] font-bold text-emerald-600">✓ Ready to dispatch</span>
+                          <span className="text-[9px] font-bold text-emerald-600">{t("storefront.gridReadyToDispatch")}</span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2367,7 +2367,7 @@ export default function CustomerStorefront({
                         </div>
                         <div className="text-left">
                           <p className="text-[10.5px] font-black text-slate-900 dark:text-white leading-none">{activeProfile.name}</p>
-                          <span className="text-[7.5px] text-slate-400 font-mono">Sponsored</span>
+                          <span className="text-[7.5px] text-slate-400 font-mono">{t("storefront.gridSponsored")}</span>
                         </div>
                       </div>
 
@@ -2428,7 +2428,7 @@ export default function CustomerStorefront({
                         ) : (
                           <Cpu className="w-6 h-6 text-indigo-500" />
                         )}
-                        <span className="absolute top-1 left-1 bg-red-600 text-white font-mono text-[7px] px-1 font-bold rounded">BIDDING FEED</span>
+                        <span className="absolute top-1 left-1 bg-red-600 text-white font-mono text-[7px] px-1 font-bold rounded">{t("storefront.gridBiddingFeed")}</span>
                       </div>
 
                       <div className="flex-1 min-w-0 text-left space-y-1.5">
@@ -2436,15 +2436,15 @@ export default function CustomerStorefront({
                         <p className={`text-[10px] ${textMutedClass} line-clamp-1`}>{p.desc}</p>
                         
                         <div className="flex flex-wrap items-center gap-3 mt-1.5">
-                          <span className="text-[9px] bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 px-2 py-0.5 font-mono font-black rounded">⏱️ 1h 24m left</span>
-                          <span className="text-[9px] text-slate-400 font-bold font-mono">15 bids submitted</span>
+                          <span className="text-[9px] bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 px-2 py-0.5 font-mono font-black rounded">{t("storefront.gridTimeLeft")}</span>
+                          <span className="text-[9px] text-slate-400 font-bold font-mono">{t("storefront.gridBidsSubmitted")}</span>
                           <span className="text-[9px] bg-slate-100 dark:bg-slate-900 text-slate-500 font-mono px-2 py-0.5 rounded">{p.category}</span>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0 min-w-[100px] flex flex-col justify-center items-end gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-105 dark:border-slate-850 pt-2.5 sm:pt-0 sm:pl-4">
                         <p className="text-sm font-black font-mono leading-none tracking-tight text-slate-900 dark:text-white">${p.price.toFixed(2)}</p>
-                        <p className="text-[8px] text-slate-400 uppercase font-mono font-bold">Buy-It-Now price</p>
+                        <p className="text-[8px] text-slate-400 uppercase font-mono font-bold">{t("storefront.gridBuyItNowPrice")}</p>
                         
                         <button
                           onClick={(e) => {
@@ -2453,7 +2453,7 @@ export default function CustomerStorefront({
                           }}
                           className={`p-1 px-3 ${clr.primaryBg} ${clr.primaryHoverBg} ${activeProfile.primaryColor === 'cyan' || activeProfile.primaryColor === 'amber' ? 'text-slate-900' : 'text-white'} text-[9px] font-black uppercase font-mono rounded transition-all cursor-pointer`}
                         >
-                          Buy Now
+                          {t("storefront.buyNow")}
                         </button>
                       </div>
                     </div>
@@ -2478,7 +2478,7 @@ export default function CustomerStorefront({
                     >
                       {idx === 0 ? (
                         <div className="space-y-3 text-left w-full">
-                          <span className="bg-indigo-600 text-white font-mono text-[8px] font-black uppercase px-2 py-0.5 rounded-sm inline-block">MEMBER SPOTLIGHT EDITORIAL</span>
+                          <span className="bg-indigo-600 text-white font-mono text-[8px] font-black uppercase px-2 py-0.5 rounded-sm inline-block">{t("storefront.gridMemberSpotlight")}</span>
                           <div className="flex flex-col sm:flex-row gap-4">
                             <div className="w-full sm:w-1/3 h-28 bg-slate-900 rounded-xl overflow-hidden shrink-0 relative">
                               {p.imageUrl ? (
@@ -2501,7 +2501,7 @@ export default function CustomerStorefront({
                               }}
                               className={`px-4 py-1.5 ${clr.primaryBg} ${clr.primaryHoverBg} ${activeProfile.primaryColor === 'cyan' || activeProfile.primaryColor === 'amber' ? 'text-slate-900' : 'text-white'} text-[10px] font-black uppercase rounded-lg cursor-pointer`}
                             >
-                              Get Spotlight
+                              {t("storefront.gridGetSpotlight")}
                             </button>
                           </div>
                         </div>
@@ -2566,7 +2566,7 @@ export default function CustomerStorefront({
                         <p className={`text-[10px] ${textMutedClass} line-clamp-1 mt-1`}>{p.category} | {p.desc}</p>
                         {p.buyingPrice && (
                           <span className="text-[9px] text-emerald-600 bg-emerald-100/10 px-1.5 py-0.2 rounded font-mono font-bold mt-1 inline-block">
-                            Buying price: ${p.buyingPrice.toFixed(2)}
+                            {t("storefront.gridBuyingPrice", { price: p.buyingPrice.toFixed(2) })}
                           </span>
                         )}
                       </div>
@@ -2601,12 +2601,12 @@ export default function CustomerStorefront({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1">
                 <span className="bg-yellow-400 text-black font-black italic px-2 py-0.5 rounded text-[11px] leading-none uppercase tracking-wide">
-                  ✓ Choice
+                  {t("storefront.choiceTitle")}
                 </span>
                 <span className="text-slate-400">|</span>
-                <span className="text-[10.5px] font-bold text-slate-705">Fast Free shipping</span>
+                <span className="text-[10.5px] font-bold text-slate-705">{t("storefront.choiceFastShipping")}</span>
               </div>
-              <span className="text-[9px] font-mono text-slate-400 uppercase font-black">Choice Specials</span>
+              <span className="text-[9px] font-mono text-slate-400 uppercase font-black">{t("storefront.choiceSpecials")}</span>
             </div>
 
             {/* Three side-by-side product preview boxes exactly like choice items layout */}
@@ -2617,7 +2617,7 @@ export default function CustomerStorefront({
                   <img src="https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&q=80&w=150" alt="Earbuds" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h4 className="text-[9px] font-bold text-slate-700 truncate">Acoustic pods</h4>
+                  <h4 className="text-[9px] font-bold text-slate-700 truncate">{t("storefront.choiceAcousticPods")}</h4>
                   <div className="flex flex-col items-center">
                     <span className="text-[11px] font-black text-orange-600 font-mono leading-none">$18.99</span>
                     <span className="text-[8px] text-slate-400 line-through font-mono">$189.90</span>
@@ -2630,7 +2630,7 @@ export default function CustomerStorefront({
                   }}
                   className="w-full py-0.5 bg-black hover:bg-slate-800 text-white text-[8px] font-black rounded-sm uppercase tracking-wide cursor-pointer font-mono"
                 >
-                  Grab
+                  {t("storefront.choiceGrab")}
                 </button>
               </div>
 
@@ -2639,7 +2639,7 @@ export default function CustomerStorefront({
                   <img src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&q=80&w=150" alt="Keyboard" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h4 className="text-[9px] font-bold text-slate-700 truncate">Holo Keyboard</h4>
+                  <h4 className="text-[9px] font-bold text-slate-700 truncate">{t("storefront.choiceHoloKeyboard")}</h4>
                   <div className="flex flex-col items-center">
                     <span className="text-[11px] font-black text-orange-600 font-mono leading-none">$43.00</span>
                     <span className="text-[8px] text-slate-400 line-through font-mono">$249.00</span>
@@ -2652,7 +2652,7 @@ export default function CustomerStorefront({
                   }}
                   className="w-full py-0.5 bg-black hover:bg-slate-800 text-white text-[8px] font-black rounded-sm uppercase tracking-wide cursor-pointer font-mono"
                 >
-                  Grab
+                  {t("storefront.choiceGrab")}
                 </button>
               </div>
 
@@ -2661,7 +2661,7 @@ export default function CustomerStorefront({
                   <img src="https://images.unsplash.com/photo-1593508512255-86ab42a8e620?auto=format&fit=crop&q=80&w=150" alt="VR VR" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h4 className="text-[9px] font-bold text-slate-700 truncate">Vision Visor</h4>
+                  <h4 className="text-[9px] font-bold text-slate-700 truncate">{t("storefront.choiceVisionVisor")}</h4>
                   <div className="flex flex-col items-center">
                     <span className="text-[11px] font-black text-orange-600 font-mono leading-none">$120.00</span>
                     <span className="text-[8px] text-slate-400 line-through font-mono">$420.00</span>
@@ -2674,7 +2674,7 @@ export default function CustomerStorefront({
                   }}
                   className="w-full py-0.5 bg-black hover:bg-slate-800 text-white text-[8px] font-black rounded-sm uppercase tracking-wide cursor-pointer font-mono"
                 >
-                  Grab
+                  {t("storefront.choiceGrab")}
                 </button>
               </div>
 
@@ -2686,10 +2686,10 @@ export default function CustomerStorefront({
           <div className={`${cardBgClass} rounded-2xl p-4.5 space-y-3`}>
             <div>
               <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center justify-between">
-                <span>Weekly deals</span>
-                <span className="text-[10px] text-slate-400 font-semibold font-sans normal-case">Updated 1h ago</span>
+                <span>{t("storefront.weeklyDealsTitle")}</span>
+                <span className="text-[10px] text-slate-400 font-semibold font-sans normal-case">{t("storefront.weeklyDealsUpdated")}</span>
               </h3>
-              <p className="text-[11px] text-slate-500">Exceptional low price records in the past 30 days</p>
+              <p className="text-[11px] text-slate-500">{t("storefront.weeklyDealsSubtitle")}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pb-1">
@@ -2711,7 +2711,7 @@ export default function CustomerStorefront({
                   </div>
                   <div className="min-w-0">
                     <h5 className="text-[10px] font-bold text-slate-800 truncate group-hover:text-orange-600 transition-colors">{prod.name}</h5>
-                    <p className="text-[11px] font-extrabold text-orange-600 font-mono">From ${(prod.price * 0.5).toFixed(2)}</p>
+                    <p className="text-[11px] font-extrabold text-orange-600 font-mono">{t("storefront.weeklyDealsFrom", { price: (prod.price * 0.5).toFixed(2) })}</p>
                   </div>
                 </div>
               ))}
@@ -2721,9 +2721,9 @@ export default function CustomerStorefront({
           {/* Core Interactive Dispatch Cart Terminal (Ensuring cart works) */}
           <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl p-5 shadow-lg space-y-4">
             <h3 className="text-xs font-black text-orange-500 uppercase tracking-widest flex items-center justify-between font-mono">
-              <span>Checkout Terminal</span>
+              <span>{t("storefront.checkoutTerminal")}</span>
               <span className="font-mono bg-orange-950 text-orange-400 border border-orange-800 px-2 py-0.5 rounded text-[10px]">
-                {cart.length} modules active
+                {t("storefront.checkoutModulesActive", { count: cart.length })}
               </span>
             </h3>
 
@@ -2754,13 +2754,13 @@ export default function CustomerStorefront({
                 </div>
 
                 <div className="pt-2.5 border-t border-slate-800 flex justify-between items-center text-xs">
-                  <span className="font-bold text-slate-400">Dispatch total:</span>
+                  <span className="font-bold text-slate-400">{t("storefront.checkoutTotal")}</span>
                   <span className="text-sm font-black font-mono text-orange-400">${cartTotal.toFixed(2)}</span>
                 </div>
 
                 {checkoutSuccess && (
                   <div className="p-2 bg-emerald-950/25 text-emerald-400 border border-emerald-900/35 text-[10.5px] rounded-lg">
-                    ✓ Transaction complete! Dispatched package to telemetry logs feed.
+                    {t("storefront.checkoutSuccess")}
                   </div>
                 )}
 
@@ -2769,13 +2769,13 @@ export default function CustomerStorefront({
                   disabled={isCheckingOut}
                   className="w-full py-2 bg-orange-500 hover:bg-orange-650 text-white font-black text-xs rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-mono"
                 >
-                  {isCheckingOut ? "Calibrating dispatch channels..." : "Instant Secure Gateway Dispatch"}
+                  {isCheckingOut ? t("storefront.checkoutCalibrating") : t("storefront.checkoutSubmit")}
                 </button>
               </div>
             ) : (
               <div className="text-center py-6 text-slate-500 bg-[#161616] rounded-xl border border-slate-800 border-dashed">
                 <ShoppingBag className="w-8 h-8 mx-auto text-slate-600 mb-1.5 stroke-[1.4]" />
-                <p className="text-[10px] font-mono">Shopping Cart is currently empty.</p>
+                <p className="text-[10px] font-mono">{t("storefront.checkoutEmpty")}</p>
               </div>
             )}
           </div>
@@ -2784,28 +2784,28 @@ export default function CustomerStorefront({
           {isFreeTier && (
             <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/50 border border-indigo-100 rounded-2xl p-4.5 space-y-3.5 relative overflow-hidden text-left">
               <div className="absolute top-1 left-2 flex items-center gap-1">
-                <span className="text-[7px] font-black text-indigo-500 tracking-wider uppercase font-mono bg-indigo-500/10 px-1 border border-indigo-500/15 rounded animate-pulse">Ad</span>
-                <span className="text-[7.5px] text-slate-400 font-bold font-mono">By Antigravity systems</span>
+                <span className="text-[7px] font-black text-indigo-500 tracking-wider uppercase font-mono bg-indigo-500/10 px-1 border border-indigo-500/15 rounded animate-pulse">{t("storefront.antigravityAd")}</span>
+                <span className="text-[7.5px] text-slate-400 font-bold font-mono">{t("storefront.antigravityBy")}</span>
               </div>
               <div className="space-y-2 pt-2">
                 <div className="h-24 bg-slate-950 rounded-xl flex items-center justify-center font-mono text-[10px] overflow-hidden relative">
                   <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 animate-pulse" />
                   <span className="text-indigo-400 font-extrabold text-xs tracking-widest text-center px-4 animate-bounce">
-                    ANTIGRAVITY BUILDER
+                    {t("storefront.antigravityBuilder")}
                   </span>
                 </div>
                 <div className="space-y-1">
-                  <h5 className="text-xs font-black text-slate-800 leading-none">Defy Platform Physics</h5>
+                  <h5 className="text-xs font-black text-slate-800 leading-none">{t("storefront.antigravityTitle")}</h5>
                   <p className="text-[10px] text-slate-500 leading-normal font-medium">
-                    Deploy separate, standalone web experiences in 1 click. Connect Google Sheets boards effortlessly.
+                    {t("storefront.antigravityBody")}
                   </p>
                 </div>
               </div>
               <button 
-                onClick={() => alert("Simulation: Launching Antigravity AI Console in a sandbox...")}
+                onClick={() => alert(t("storefront.antigravityAlert"))}
                 className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all font-mono cursor-pointer"
               >
-                Sign Up for Free Hub
+                {t("storefront.antigravityCta")}
               </button>
             </div>
           )}
@@ -2815,17 +2815,17 @@ export default function CustomerStorefront({
             <div>
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-1.5 font-mono">
                 <MessageSquare className="w-3.5 h-3.5 text-orange-500" />
-                Live Review channel Feed
+                {t("storefront.reviewChannelTitle")}
               </h3>
               <p className="text-[11px] text-slate-500 leading-snug">
-                Pipes customer telemetry reviews dynamically into our AI categorizing sorter.
+                {t("storefront.reviewChannelSubtitle")}
               </p>
             </div>
 
             <form onSubmit={handlePostFeedback} className="space-y-3">
               <input
                 type="text"
-                placeholder={customerSession ? customerSession.name : "e.g., Engineer Ramirez"}
+                placeholder={customerSession ? customerSession.name : t("storefront.reviewAuthorPlaceholder")}
                 className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-801 focus:outline-hidden focus:border-orange-500 font-mono"
                 value={feedbackAuthor}
                 onChange={(e) => setFeedbackAuthor(e.target.value)}
@@ -2836,7 +2836,7 @@ export default function CustomerStorefront({
                 value={feedbackProduct}
                 onChange={(e) => setFeedbackProduct(e.target.value)}
               >
-                <option value="">General Service / Delivery</option>
+                <option value="">{t("storefront.reviewProductPlaceholder")}</option>
                 {products.map(p => (
                   <option key={p.id} value={p.name}>{p.name}</option>
                 ))}
@@ -2844,7 +2844,7 @@ export default function CustomerStorefront({
 
               <textarea
                 required
-                placeholder="Review details (e.g. Visor screen brightness spiked on direct sun. Firmware needs optimization)."
+                placeholder={t("storefront.reviewCommentPlaceholder")}
                 className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-800 min-h-[60px] resize-y focus:outline-hidden focus:border-orange-500"
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
@@ -2852,7 +2852,7 @@ export default function CustomerStorefront({
 
               {feedbackSuccess && (
                 <div className="p-2 bg-emerald-50 text-emerald-800 text-[10.5px] rounded-lg border border-emerald-200">
-                  ✓ Transmitted! Review logged into autonomous sorted feedback list.
+                  {t("storefront.reviewChannelSuccess")}
                 </div>
               )}
 
@@ -2860,7 +2860,7 @@ export default function CustomerStorefront({
                 type="submit"
                 className="w-full py-1.5 bg-black hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors font-mono"
               >
-                Submit Feedback Telemetry
+                {t("storefront.reviewChannelSubmit")}
               </button>
             </form>
           </div>
@@ -2879,17 +2879,19 @@ export default function CustomerStorefront({
               <div>
                 <h4 className="text-sm font-black text-slate-900 font-mono flex items-center gap-1.5">
                   <Terminal className="w-4 h-4 text-orange-500" />
-                  {authModal === "sme" ? "Enterprise Operations Panel Login" : "Client Credentials Init"}
+                  {authModal === "sme" ? t("storefront.authSmeTitle") : t("storefront.authCustomerTitle")}
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {authModal === "sme" 
-                    ? "Enter administrative pins to verify system clearance." 
-                    : "Create temporary operator login key."}
+                    ? t("storefront.authSmeSubtitle")
+                    : t("storefront.authCustomerSubtitle")}
                 </p>
               </div>
               <button
                 onClick={() => setAuthModal("none")}
                 className="text-slate-400 hover:text-black font-extrabold text-xl select-none"
+                title={t("storefront.authClose")}
+                aria-label={t("storefront.authClose")}
               >
                 &times;
               </button>
@@ -2897,40 +2899,40 @@ export default function CustomerStorefront({
 
             <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
               <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest font-mono block flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-orange-500" /> Auto-Credential Bypass Pass
+                <Sparkles className="w-3.5 h-3.5 text-orange-500" /> {t("storefront.authAutoBypassLabel")}
               </span>
               <p className="text-[11px] text-slate-500 leading-normal">
-                Click here to automatically load verified credentials configured in database nodes:
+                {t("storefront.authAutoBypassHelp")}
               </p>
               <button
                 type="button"
                 onClick={() => handleTestLogin(authModal === "sme" ? "sme" : "customer")}
                 className="py-1 px-3 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black font-mono rounded active:scale-95 transition-all text-center cursor-pointer block"
               >
-                Inject Pre-Filled Demo Credentials
+                {t("storefront.authInjectButton")}
               </button>
             </div>
 
             <form onSubmit={handleExecuteLogin} className="space-y-3">
               <div className="space-y-0.5">
-                <label className="text-[10.5px] font-bold text-slate-500 block font-mono">Email address</label>
+                <label className="text-[10.5px] font-bold text-slate-500 block font-mono">{t("storefront.authEmailLabel")}</label>
                 <input
                   type="email"
                   required
                   className="w-full text-xs p-2.5 border border-slate-200 rounded-lg bg-slate-50 focus:outline-hidden focus:border-orange-500 font-mono"
-                  placeholder={authModal === "sme" ? "chief@cybermonkey.com" : "customer@cybermonkey.com"}
+                  placeholder={authModal === "sme" ? t("storefront.authSmeEmailPlaceholder") : t("storefront.authCustomerEmailPlaceholder")}
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                 />
               </div>
 
               <div className="space-y-0.5">
-                <label className="text-[10.5px] font-bold text-slate-500 block font-mono">Password</label>
+                <label className="text-[10.5px] font-bold text-slate-500 block font-mono">{t("storefront.authPasswordLabel")}</label>
                 <input
                   type="password"
                   required
                   className="w-full text-xs p-2.5 border border-slate-200 rounded-lg bg-slate-50 focus:outline-hidden focus:border-orange-500 font-mono"
-                  placeholder="••••••••"
+                  placeholder={t("storefront.authPasswordPlaceholder")}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                 />
@@ -2948,13 +2950,13 @@ export default function CustomerStorefront({
                   onClick={() => setAuthModal("none")}
                   className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-bold text-xs font-mono"
                 >
-                  Abort
+                  {t("storefront.authAbort")}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 py-2 bg-black hover:bg-slate-800 text-white rounded-lg font-black text-xs font-mono"
                 >
-                  Confirm Init
+                  {t("storefront.authConfirm")}
                 </button>
               </div>
             </form>
