@@ -22,5 +22,7 @@ Thumbs.db
 # Vercel
 .vercel/
 .vercel-build/
-api/*.cjs
-api/*.cjs.map
+api/handler.cjs
+api/handler.cjs.map
+api/handler-server.cjs
+api/handler-server.cjs.map
