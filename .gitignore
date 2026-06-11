@@ -10,6 +10,9 @@ coverage/
 
 # Puku AI local vector search index (regenerated automatically)
 .puku/
+*.db
+*.db-shm
+*.db-wal
 
 # Editor / OS noise
 .vscode/
