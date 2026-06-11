@@ -5,16 +5,16 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/handler.cjs": {
+    "api/index.ts": {
       "maxDuration": 60,
       "memory": 1024
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/handler" },
-    { "source": "/store/(.*)", "destination": "/api/handler" },
-    { "source": "/admin/(.*)", "destination": "/api/handler" },
-    { "source": "/(.*)", "destination": "/api/handler" }
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/store/(.*)", "destination": "/api/index" },
+    { "source": "/admin/(.*)", "destination": "/api/index" },
+    { "source": "/(.*)", "destination": "/api/index" }
   ],
   "headers": [
     {
