@@ -1,0 +1,65 @@
+(node:2076) NOTE: The AWS SDK for JavaScript (v2) has reached end-of-support.
+It will no longer receive updates or releases.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+Database initialization unavailable, continuing in local UI mode: AggregateError [ECONNREFUSED]: 
+    at D:\sme-ai-dashboard\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async initializeMasterSchema (D:\sme-ai-dashboard\src\server\db.ts:34:18)
+    at async <anonymous> (D:\sme-ai-dashboard\server.ts:43:5) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:5432
+        at createConnectionError (node:net:1746:14)
+        at afterConnectMultiple (node:net:1776:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5432
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:5432
+        at createConnectionError (node:net:1746:14)
+        at afterConnectMultiple (node:net:1776:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5432
+    }
+  ]
+}
+AI Sorter Error: ApiError: {"error":{"code":503,"message":"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.","status":"UNAVAILABLE"}}
+    at throwErrorIfNotOK (D:\sme-ai-dashboard\node_modules\@google\genai\src\_api_client.ts:983:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async <anonymous> (D:\sme-ai-dashboard\node_modules\@google\genai\src\_api_client.ts:588:9)
+    at async Models.Models.generateContent (D:\sme-ai-dashboard\node_modules\@google\genai\src\models.ts:128:14)
+    at async <anonymous> (D:\sme-ai-dashboard\server.ts:89:22) {
+  status: 503
+}
+AI Sorter Error: ApiError: {"error":{"code":503,"message":"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.","status":"UNAVAILABLE"}}
+    at throwErrorIfNotOK (D:\sme-ai-dashboard\node_modules\@google\genai\src\_api_client.ts:983:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async <anonymous> (D:\sme-ai-dashboard\node_modules\@google\genai\src\_api_client.ts:588:9)
+    at async Models.Models.generateContent (D:\sme-ai-dashboard\node_modules\@google\genai\src\models.ts:128:14)
+    at async <anonymous> (D:\sme-ai-dashboard\server.ts:89:22) {
+  status: 503
+}
+AI Description Gen Error: ApiError: {"error":{"code":503,"message":"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.","status":"UNAVAILABLE"}}
+    at throwErrorIfNotOK (D:\sme-ai-dashboard\node_modules\@google\genai\src\_api_client.ts:983:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async <anonymous> (D:\sme-ai-dashboard\node_modules\@google\genai\src\_api_client.ts:588:9)
+    at async Models.Models.generateContent (D:\sme-ai-dashboard\node_modules\@google\genai\src\models.ts:128:14)
+    at async <anonymous> (D:\sme-ai-dashboard\server.ts:208:22) {
+  status: 503
+}
+AI Description Gen Error: ApiError: {"error":{"code":503,"message":"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.","status":"UNAVAILABLE"}}
+    at throwErrorIfNotOK (D:\sme-ai-dashboard\node_modules\@google\genai\src\_api_client.ts:983:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async <anonymous> (D:\sme-ai-dashboard\node_modules\@google\genai\src\_api_client.ts:588:9)
+    at async Models.Models.generateContent (D:\sme-ai-dashboard\node_modules\@google\genai\src\models.ts:128:14)
+    at async <anonymous> (D:\sme-ai-dashboard\server.ts:208:22) {
+  status: 503
+}

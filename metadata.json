@@ -1,0 +1,6 @@
+{
+  "name": "SME AI Dashboard",
+  "description": "An AI-powered dashboard for SMEs that automates data sorting, analyzes files/feedback, generates product copy, compares competitor pricing, and simulates autonomous storefront updates based on market insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

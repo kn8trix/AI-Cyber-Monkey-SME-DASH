@@ -1,0 +1,20 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+*.err
+.env*
+!.env.example
+
+# Puku AI local vector search index (regenerated automatically)
+.puku/
+
+# Editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+
+# Vercel
+.vercel/
