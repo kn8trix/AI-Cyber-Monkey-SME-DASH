@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import multiTenantRoutes from "./src/server/multi-tenant-routes";
@@ -8,11 +7,22 @@ import { initializeMasterSchema } from "./src/server/db";
 
 dotenv.config();
 
+const PORT = 3000;
+const IS_VERCEL = process.env.VERCEL === "1" || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const PORT = 3000;
+// Last-resort error handler so the serverless function never crashes the
+// whole invocation with an opaque FUNCTION_INVOCATION_FAILED. Returns a
+// JSON error so the frontend can render a useful message.
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[server] Unhandled error:", err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: err?.message || "Internal server error" });
+  }
+});
 
 // Centralized Gemini model id. Update this single constant to swap models
 // across all AI endpoints. Confirmed current stable Flash as of June 2026:
@@ -38,7 +48,13 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 // Initialize database on startup without blocking the dashboard if Postgres is unavailable.
+// On Vercel the DB call may not have a DATABASE_URL set; the catch below keeps
+// the serverless import path from throwing during cold start.
 (async () => {
+  if (IS_VERCEL && !process.env.DATABASE_URL) {
+    console.log("Vercel: no DATABASE_URL, skipping DB init (local UI mode).");
+    return;
+  }
   try {
     await initializeMasterSchema();
     console.log("✓ Database initialized");
@@ -797,14 +813,18 @@ app.post("/api/search-products", async (req, res) => {
 // ==========================================
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
-    // Development Mode
+    // Development Mode: lazy-load Vite so it's never bundled into the
+    // serverless production output.
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    // Production Mode: Serve static files
+    // Production Mode: Serve static files. On Vercel, `process.cwd()` is
+    // `/var/task` and `dist/` is deployed alongside the function, so
+    // `path.join(process.cwd(), "dist")` resolves correctly.
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
@@ -821,7 +841,7 @@ async function startServer() {
 // On Vercel, `api/index.ts` imports the `app` and exports it as a
 // serverless handler, so we must NOT call `startServer()` there — that
 // would hang the serverless invocation on `app.listen()`.
-if (process.env.VERCEL !== "1" && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+if (!IS_VERCEL) {
   startServer();
 }
 
