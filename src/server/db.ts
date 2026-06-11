@@ -45,6 +45,7 @@ export async function initializeMasterSchema() {
         status VARCHAR DEFAULT 'active',
         backend_port INT,
         s3_bucket VARCHAR,
+        CONSTRAINT tenants_backend_port_unique UNIQUE (backend_port),
         ssl_cert_path VARCHAR,
         max_products INT DEFAULT 100,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -3,12 +3,47 @@ import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import multiTenantRoutes from "./src/server/multi-tenant-routes";
-import { initializeMasterSchema } from "./src/server/db";
+import { initializeMasterSchema, masterPool } from "./src/server/db";
 
 dotenv.config();
 
 const PORT = 3000;
 const IS_VERCEL = process.env.VERCEL === "1" || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+// Canonical product category whitelist. Both the AI prompt and the
+// fallback path must clamp to this set so the frontend never receives
+// an unknown category (which would break CustomerStorefront filters).
+const ALLOWED_CATEGORIES = [
+  "Accessories",
+  "Home & Living",
+  "Apparel",
+  "Office",
+  "Food & Beverage",
+  "Garden"
+] as const;
+const DEFAULT_CATEGORY = "Home & Living";
+
+/**
+ * Clamp an arbitrary string to the ALLOWED_CATEGORIES whitelist.
+ * - Exact match wins.
+ * - Otherwise, do a case-insensitive substring check against each
+ *   canonical name (so "home" still maps to "Home & Living").
+ * - If nothing matches, return DEFAULT_CATEGORY rather than passing
+ *   through an unknown value to the frontend.
+ */
+function normalizeCategory(input: string | null | undefined): string {
+  if (typeof input !== "string") return DEFAULT_CATEGORY;
+  const trimmed = input.trim();
+  if (!trimmed) return DEFAULT_CATEGORY;
+  if ((ALLOWED_CATEGORIES as readonly string[]).includes(trimmed)) {
+    return trimmed;
+  }
+  const lower = trimmed.toLowerCase();
+  const fuzzy = (ALLOWED_CATEGORIES as readonly string[]).find((c) =>
+    lower.includes(c.toLowerCase())
+  );
+  return fuzzy ?? DEFAULT_CATEGORY;
+}
 
 const app = express();
 app.use(express.json());
@@ -47,6 +82,57 @@ if (!process.env.GEMINI_API_KEY) {
   console.log(`✓ Gemini API key loaded. Using model: ${MODEL_ID}`);
 }
 
+// ==========================================
+// ADMIN AUTH MIDDLEWARE
+// ==========================================
+// Every `/api/admin/*` route mutates tenant state (provisioning,
+// suspend, delete, Vercel deploy). Gate it behind a shared secret so
+// the dashboard (or curl with the secret) can call it, but a public
+// visitor cannot.
+//
+// `ADMIN_API_KEY` MUST be set in production. In development we log
+// a warning and fall through so the local flow keeps working.
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
+
+if (process.env.NODE_ENV === "production" && !ADMIN_API_KEY) {
+  console.warn(
+    "⚠️  ADMIN_API_KEY is not set. All /api/admin/* endpoints will reject requests in production. " +
+      "Generate a long random value (e.g. `openssl rand -hex 32`) and add it to your Vercel project env."
+  );
+} else if (ADMIN_API_KEY) {
+  console.log("✓ Admin API key configured (x-admin-key required for /api/admin/*).");
+}
+
+const requireAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Constant-time comparison to avoid timing oracles.
+  const provided = req.get("x-admin-key") || "";
+  const expected = ADMIN_API_KEY || "";
+
+  // In dev, if no key is configured, we log a clear warning and allow
+  // the request through. In production we always require the header.
+  if (process.env.NODE_ENV !== "production" && !expected) {
+    console.warn(`[admin] ${req.method} ${req.path} allowed without key (dev mode)`);
+    return next();
+  }
+  if (!expected) {
+    return res.status(503).json({
+      error: "Admin API not configured",
+      message: "Set ADMIN_API_KEY in the server environment.",
+    });
+  }
+  if (provided.length !== expected.length) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
+  }
+  if (mismatch !== 0) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  return next();
+};
+
 // Initialize database on startup without blocking the dashboard if Postgres is unavailable.
 // On Vercel the DB call may not have a DATABASE_URL set; the catch below keeps
 // the serverless import path from throwing during cold start.
@@ -63,8 +149,132 @@ if (!process.env.GEMINI_API_KEY) {
   }
 })();
 
-// Register multi-tenant routes
+// Register multi-tenant routes. We gate the `/api/admin/*` subtree
+// (provisioning, suspend, delete, deploy, etc.) behind the admin
+// token; everything else (AI endpoints, tenant-context routes) stays
+// public for now.
+app.use("/api/admin", requireAdmin);
 app.use("/api", multiTenantRoutes);
+
+// ==========================================
+// DEMO DATA ENDPOINTS (Supabase / Postgres)
+// ==========================================
+// These endpoints are public and read-only. They are designed to never
+// break the Vercel prod build: if the demo schema isn't present, they
+// return an empty 200 response so the frontend can fall back to its
+// hardcoded defaults. All queries are bounded (LIMIT / date filters)
+// to keep serverless invocations fast and within the 60s timeout
+// configured in vercel.json.
+app.get("/api/demo/tenant-metrics", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", metrics: [], stores: [], activity: [] });
+  }
+  try {
+    // v_tenant_metrics is created in supabase/init.sql. If a user
+    // connects this app to a Postgres database that doesn't define
+    // that view, we fail open to an empty payload.
+    const result = await masterPool.query(
+      `SELECT tenant_id, tenant_name, total_revenue, total_orders,
+              total_products, active_stores, revenue_growth_pct, last_order_at
+         FROM v_tenant_metrics
+        ORDER BY total_revenue DESC
+        LIMIT 5`
+    );
+    return res.json({ ok: true, source: "supabase", metrics: result.rows });
+  } catch (error: any) {
+    // Missing view / table → fall back to empty.
+    return res.json({ ok: true, source: "fallback", metrics: [], note: error?.message });
+  }
+});
+
+app.get("/api/demo/stores", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", stores: [] });
+  }
+  try {
+    const result = await masterPool.query(
+      `SELECT id, domain, name, status, created_at,
+              (SELECT COUNT(*) FROM orders o WHERE o.tenant_id = t.id
+                AND o.created_at::date = CURRENT_DATE) AS orders_today
+         FROM tenants t
+         WHERE t.status <> 'deleted'
+         ORDER BY t.created_at DESC
+         LIMIT 20`
+    );
+    return res.json({ ok: true, source: "supabase", stores: result.rows });
+  } catch (error: any) {
+    return res.json({ ok: true, source: "fallback", stores: [], note: error?.message });
+  }
+});
+
+app.get("/api/demo/orders", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", series: [], currentBalance: null, trend: null });
+  }
+  try {
+    // Aggregate revenue per month for the last 6 months. TimescaleDB
+    // is not required — a simple date_trunc works fine for the demo
+    // data volumes.
+    const seriesResult = await masterPool.query(
+      `SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS month,
+              COALESCE(SUM(total_amount), 0)::numeric AS revenue,
+              COUNT(*)::int AS order_count
+         FROM orders
+        WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '5 months'
+        GROUP BY 1
+        ORDER BY 1 ASC`
+    );
+
+    // Current "balance" = revenue in the current calendar month.
+    const balanceResult = await masterPool.query(
+      `SELECT COALESCE(SUM(total_amount), 0)::numeric AS current_month_revenue,
+              COALESCE(SUM(total_amount)
+                FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+                        AND created_at <  date_trunc('month', CURRENT_DATE)), 0)::numeric
+                AS prev_month_revenue
+         FROM orders
+        WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'`
+    );
+
+    const current = Number(balanceResult.rows[0]?.current_month_revenue ?? 0);
+    const prev = Number(balanceResult.rows[0]?.prev_month_revenue ?? 0);
+    const trend = prev > 0 ? +(((current - prev) / prev) * 100).toFixed(1) : 0;
+
+    return res.json({
+      ok: true,
+      source: "supabase",
+      series: seriesResult.rows,
+      currentBalance: current,
+      trend,
+    });
+  } catch (error: any) {
+    return res.json({
+      ok: true,
+      source: "fallback",
+      series: [],
+      currentBalance: null,
+      trend: null,
+      note: error?.message,
+    });
+  }
+});
+
+app.get("/api/demo/activity", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", activity: [] });
+  }
+  try {
+    const result = await masterPool.query(
+      `SELECT id, event_type, title, description, actor_email, created_at
+         FROM audit_events
+        ORDER BY created_at DESC
+        LIMIT 10`
+    );
+    return res.json({ ok: true, source: "supabase", activity: result.rows });
+  } catch (error: any) {
+    return res.json({ ok: true, source: "fallback", activity: [], note: error?.message });
+  }
+});
 
 // Initialize GoogleGenAI SDK safely
 // We lazy-load the client when requested to prevent immediate crashes if GEMINI_API_KEY is not immediately provided
@@ -491,7 +701,7 @@ app.post("/api/analyze-product-image", async (req, res) => {
             
             Strictly return a JSON object containing:
             1. 'identifiedQuery': The exact authentic brand model or consumer product name identified (e.g., 'Rowenta X-Cel Handheld Garment Steamer' or 'Valve Steam Deck 64GB'). Be as specific and accurate as possible. No placeholders or generic descriptions.
-            2. 'category': Must be exactly one of: Accessories, Home & Living, Apparel, Office, Food & Beverage, Garden.`
+            2. 'category': Must be exactly one of: Accessories, Home & Living, Apparel, Office, Food & Beverage, Garden. Pick the closest match — do not invent a new category.`
           }
         ],
         config: {
@@ -500,7 +710,7 @@ app.post("/api/analyze-product-image", async (req, res) => {
             type: Type.OBJECT,
             properties: {
               identifiedQuery: { type: Type.STRING, description: "Highly specific product brand and model name" },
-              category: { type: Type.STRING, description: "Must be exactly one of: Accessories, Home & Living, Apparel, Office, Food & Beverage, Garden" }
+              category: { type: Type.STRING, description: "Must be exactly one of: Accessories, Home & Living, Apparel, Office, Food & Beverage, Garden (server clamps to this set)" }
             },
             required: ["identifiedQuery", "category"]
           }
@@ -510,7 +720,10 @@ app.post("/api/analyze-product-image", async (req, res) => {
       const parsedVision = JSON.parse(visionResponse.text || "{}");
       if (parsedVision.identifiedQuery) {
         identifiedName = parsedVision.identifiedQuery;
-        identifiedCategory = parsedVision.category || "Home & Living";
+        // Clamp the AI's answer to the canonical category whitelist —
+        // if Gemini hallucinates "Electronics" or "Footwear" we still
+        // send a value the storefront UI can render.
+        identifiedCategory = normalizeCategory(parsedVision.category);
         isIdentified = true;
         console.log(`Stage 1 Multimodal Identification Success: Identified product as "${identifiedName}" in category "${identifiedCategory}"`);
       }
@@ -645,7 +858,9 @@ app.post("/api/analyze-product-image", async (req, res) => {
         competitionAvg: baseCompAvg,
         ourPrice: baseOurPrice,
         discountPercentage: calculatedDiscount || 15,
-        category: identifiedCategory,
+        // Clamp the category the same way the AI path does, so the
+        // fallback never returns a value outside ALLOWED_CATEGORIES.
+        category: normalizeCategory(identifiedCategory),
         desc: `Introducing the premium matched ${cleanName}. Compiling customer reviewer metrics, material specification sheets, and manual logs aggregated from active web catalogs, this item is engineered for long-lasting convenience. ${extraDesc}. Fully certified and retail safe. ${keywords}`,
         websitesMixed: ["Amazon Vendor Hub", "Walmart Home Care", "E-Commerce Market Index"],
         isFallback: true
@@ -825,10 +1040,20 @@ async function startServer() {
     // Production Mode: Serve static files. On Vercel, `process.cwd()` is
     // `/var/task` and `dist/` is deployed alongside the function, so
     // `path.join(process.cwd(), "dist")` resolves correctly.
+    //
+    // IMPORTANT: mount the SPA fallback *after* the API router (which is
+    // already registered above) and *after* `express.static` so deep
+    // links like `/api/foo` return a real 404 instead of being
+    // overwritten with `index.html`.
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get(/^(?!\/api(?:\/|$)).*/, (req, res, next) => {
+      // If the request matched no static asset, fall back to the SPA
+      // shell. We only want this for client-side routes, not for
+      // unhandled /api/* paths (let Express return its default 404).
+      res.sendFile(path.join(distPath, "index.html"), (err) => {
+        if (err) next(err);
+      });
     });
   }
 

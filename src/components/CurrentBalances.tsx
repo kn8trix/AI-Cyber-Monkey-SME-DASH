@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useT } from '../i18n/LanguageContext';
 
@@ -17,12 +17,84 @@ const defaultData = [
   { month: 'Jun', amount: 18 }
 ];
 
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+interface DemoOrdersResponse {
+  source?: 'supabase' | 'fallback';
+  series?: Array<{ month: string; revenue: number | string; order_count: number | string }>;
+  currentBalance?: number | null;
+  trend?: number | null;
+}
+
+function toNumber(n: number | string | undefined | null): number {
+  if (n == null) return 0;
+  const v = typeof n === 'string' ? parseFloat(n) : n;
+  return Number.isFinite(v) ? v : 0;
+}
+
+function formatThousands(n: number): string {
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function CurrentBalances({
-  data = defaultData,
-  currentBalance = '15,890.00',
-  trend = 20
+  data: dataProp,
+  currentBalance: currentBalanceProp,
+  trend: trendProp
 }: BalanceChartProps) {
-  const maxAmount = Math.max(...data.map(d => d.amount));
+  // If the parent passed props explicitly (e.g. preview/tests), honor
+  // them. Otherwise, fetch from /api/demo/orders and fall back to the
+  // hardcoded defaults if the request fails or the backend is offline.
+  const [live, setLive] = useState<DemoOrdersResponse | null>(null);
+
+  useEffect(() => {
+    if (dataProp || currentBalanceProp !== undefined || trendProp !== undefined) return;
+    let cancelled = false;
+    fetch('/api/demo/orders')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled || !json) return;
+        setLive(json as DemoOrdersResponse);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dataProp, currentBalanceProp, trendProp]);
+
+  const { data, currentBalance, trend } = useMemo(() => {
+    if (dataProp || currentBalanceProp !== undefined || trendProp !== undefined) {
+      return {
+        data: dataProp ?? defaultData,
+        currentBalance: currentBalanceProp ?? '15,890.00',
+        trend: trendProp ?? 20,
+      };
+    }
+    if (live && live.source === 'supabase' && live.series && live.series.length) {
+      const series = live.series.map((row) => {
+        const parts = (row.month || '').split('-');
+        const monthIdx = parseInt(parts[1] || '0', 10) - 1;
+        const label = MONTH_LABELS[monthIdx] || row.month;
+        // Convert revenue (USD) to a "K" value to match the chart's
+        // existing visual scale (default max is 18K).
+        const revenue = toNumber(row.revenue);
+        return { month: label, amount: Math.max(1, Math.round(revenue / 1000)) };
+      });
+      return {
+        data: series,
+        currentBalance: live.currentBalance != null ? formatThousands(live.currentBalance) : '15,890.00',
+        trend: live.trend != null ? live.trend : 20,
+      };
+    }
+    return {
+      data: defaultData,
+      currentBalance: '15,890.00',
+      trend: 20,
+    };
+  }, [dataProp, currentBalanceProp, trendProp, live]);
+
+  const maxAmount = Math.max(...data.map((d) => d.amount));
   const t = useT();
 
   return (
@@ -44,7 +116,9 @@ export default function CurrentBalances({
           <span className="text-gray-500 text-sm">USD</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-green-600 font-semibold text-sm">↑ {trend}%</span>
+          <span className={`font-semibold text-sm ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
+          </span>
           <span className="text-gray-500 text-xs">{t('balances.trendUp', { pct: trend })}</span>
         </div>
       </div>

@@ -1,10 +1,38 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+import { useDebouncedLocalStorage } from "./hooks/useDebouncedLocalStorage";
 import { StorefrontProduct, StorefrontProfile, withNormalizedTargetSites } from "./types";
 import { INITIAL_STOREFRONT_PROFILES, SANDBOX_RAW_LOGS } from "./data";
 import SmeDrawerMenu from "./components/SmeDrawerMenu";
-import RefactoredDashboard from "./components/RefactoredDashboard";
-import CustomerStorefront from "./components/CustomerStorefront";
+// Heavy panels are code-split so the initial bundle stays under the
+// 500 kB warning threshold. They are only fetched when the user
+// navigates to the corresponding view.
+const RefactoredDashboard = lazy(
+  () => import("./components/RefactoredDashboard")
+);
+const CustomerStorefront = lazy(
+  () => import("./components/CustomerStorefront")
+);
 import { LanguageProvider } from "./i18n/LanguageContext";
+
+// Lightweight inline fallback shown while a lazy chunk is loading.
+function PanelFallback({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 240,
+        color: "#6b7280",
+        fontSize: 14
+      }}
+    >
+      Loading {label}…
+    </div>
+  );
+}
 
 export default function App() {
   // Navigation & Security Views
@@ -39,14 +67,8 @@ export default function App() {
     };
   });
 
-  // Persist settings
-  useEffect(() => {
-    localStorage.setItem("sme_current_plan", currentPlan);
-  }, [currentPlan]);
-
-  useEffect(() => {
-    localStorage.setItem("sme_account_settings_v1", JSON.stringify(accountSettings));
-  }, [accountSettings]);
+  // Persist settings — debounced alongside the other state writes
+  // further down via useDebouncedLocalStorage (see below).
 
   // Path-based routing state
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
@@ -115,18 +137,23 @@ export default function App() {
     return combined;
   });
 
-  // Persist state updates securely
-  useEffect(() => {
-    localStorage.setItem("sme_storefront_profiles_v1", JSON.stringify(storefrontProfiles));
-  }, [storefrontProfiles]);
-
-  useEffect(() => {
-    localStorage.setItem("sme_active_profile_id_v1", activeProfileId);
-  }, [activeProfileId]);
-
-  useEffect(() => {
-    localStorage.setItem("sme_shared_products_v2", JSON.stringify(products));
-  }, [products]);
+  // Persist state updates — debounced to avoid JSON-serializing the
+  // entire profile/product tree on every keystroke. The hook also
+  // flushes the latest value on unmount so a tab close never loses
+  // the most recent edit.
+  useDebouncedLocalStorage("sme_storefront_profiles_v1", storefrontProfiles);
+  useDebouncedLocalStorage("sme_active_profile_id_v1", activeProfileId, {
+    // Active profile id is a single string — serialize as-is and use
+    // a tighter debounce (50ms) so the tab UI feels snappy.
+    delay: 50,
+    serialize: (v) => v
+  });
+  useDebouncedLocalStorage("sme_shared_products_v2", products);
+  useDebouncedLocalStorage("sme_current_plan", currentPlan, {
+    delay: 50,
+    serialize: (v) => v
+  });
+  useDebouncedLocalStorage("sme_account_settings_v1", accountSettings);
 
   // Derived properties for current profile
   const activeProfile = storefrontProfiles.find(p => p.id === activeProfileId) || storefrontProfiles[0] || INITIAL_STOREFRONT_PROFILES[0];
@@ -171,6 +198,7 @@ export default function App() {
     return (
       <LanguageProvider>
         <div className="relative animate-fadeIn">
+          <Suspense fallback={<PanelFallback label="storefront" />}>
           <CustomerStorefront
             activeProfile={targetProfile}
             profiles={storefrontProfiles}
@@ -185,6 +213,7 @@ export default function App() {
             isStandalone={true}
             isFreeTier={currentPlan === "free"}
           />
+          </Suspense>
         </div>
       </LanguageProvider>
     );
@@ -194,6 +223,7 @@ export default function App() {
   return (
     <LanguageProvider>
       <>
+        <Suspense fallback={<PanelFallback label="dashboard" />}>
         <RefactoredDashboard
           userName={accountSettings.ownerName}
           storefrontProfiles={storefrontProfiles}
@@ -222,6 +252,7 @@ export default function App() {
             navigate("/store/" + activeProfileId);
           }}
         />
+        </Suspense>
 
         <SmeDrawerMenu
           isOpen={isMenuOpen}
