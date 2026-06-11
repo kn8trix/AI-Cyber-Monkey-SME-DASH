@@ -11,6 +11,7 @@ import SmeWebsiteCustomizer from './SmeWebsiteCustomizer';
 import SmeProfileManager from './SmeProfileManager';
 import GoogleSheetsDashboard from './GoogleSheetsDashboard';
 import { StorefrontProfile, StorefrontProduct, withNormalizedTargetSites } from '../types';
+import { useT, useLanguage, greetingKeyForHour, formatSublineDate } from '../i18n/LanguageContext';
 
 interface RefactoredDashboardProps {
   userName?: string;
@@ -136,6 +137,10 @@ export default function RefactoredDashboard({
 }: RefactoredDashboardProps) {
   const [isDeploying, setIsDeploying] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const t = useT();
+  const { language } = useLanguage();
+  const greetingKey = greetingKeyForHour(new Date().getHours());
+  const sublineDate = formatSublineDate(language);
 
   // Compute live multi-tenant metrics
   const totalSales = storefrontProfiles.reduce((sum, profile) => {
@@ -148,24 +153,24 @@ export default function RefactoredDashboard({
 
   const metricsData = [
     {
-      label: 'Total Revenue',
+      label: t('metrics.totalRevenue'),
       value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       trend: 18,
-      period: 'from last month',
+      period: t('metrics.fromLastMonth'),
       icon: 'revenue' as const
     },
     {
-      label: 'New Customers',
+      label: t('metrics.newCustomers'),
       value: totalCustomers.toLocaleString(),
       trend: 12,
-      period: 'from last month',
+      period: t('metrics.fromLastMonth'),
       icon: 'customers' as const
     },
     {
-      label: 'Active Stores',
+      label: t('metrics.activeStores'),
       value: storefrontProfiles.length.toString(),
       trend: storefrontProfiles.length - 2,
-      period: 'from last week',
+      period: t('metrics.fromLastWeek'),
       icon: 'stores' as const
     }
   ];
@@ -355,13 +360,13 @@ export default function RefactoredDashboard({
   };
 
   const dashboardTabs: TabItem[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'catalog', label: 'Product Catalog' },
-    { id: 'deployer', label: 'Store Deployer' },
-    { id: 'insights', label: 'Store Insights' },
-    { id: 'customizer', label: 'Store Customizer' },
-    { id: 'profiles', label: 'Profiles Manager' },
-    { id: 'sheets', label: 'Sheets Dashboard' }
+    { id: 'overview', label: t('tabs.overview') },
+    { id: 'catalog', label: t('tabs.catalog') },
+    { id: 'deployer', label: t('tabs.deployer') },
+    { id: 'insights', label: t('tabs.insights') },
+    { id: 'customizer', label: t('tabs.customizer') },
+    { id: 'profiles', label: t('tabs.profiles') },
+    { id: 'sheets', label: t('tabs.sheets') }
   ];
 
   return (
@@ -387,8 +392,12 @@ export default function RefactoredDashboard({
         {/* Welcome Section */}
         {activeTab === 'overview' && (
           <div className="mb-8">
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Good Morning, {userName}!</h1>
-            <p className="text-gray-500 text-sm mt-1">Thursday, 26 Jun 2025 • Multi-tenant management console</p>
+            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+              {t(`overview.${greetingKey}`, { name: userName })}
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              {t('overview.subline', { date: sublineDate })}
+            </p>
           </div>
         )}
 
@@ -497,7 +506,7 @@ export default function RefactoredDashboard({
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 py-6 text-center mt-auto">
         <p className="text-xs text-gray-400 font-medium">
-          Enterprise Operational Agentic Suite © 2026. Powered with Gemini model alignment filters.
+          {t('footer')}
         </p>
       </footer>
     </div>

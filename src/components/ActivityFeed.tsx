@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ExternalLink } from 'lucide-react';
+import { useT } from '../i18n/LanguageContext';
 
 export interface ActivityItem {
   id: string;
@@ -63,14 +64,15 @@ const getActivityColor = (type: string) => {
 
 export default function ActivityFeed({ activities = defaultActivities, onViewAll }: ActivityFeedProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const t = useT();
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden h-full">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-bold text-gray-900">Activity Feed</h3>
-          <p className="text-gray-600 text-xs">Recent store events</p>
+          <h3 className="text-lg font-bold text-gray-900">{t('activity.title')}</h3>
+          <p className="text-gray-600 text-xs">{t('activity.subtitle')}</p>
         </div>
         <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ExternalLink className="w-5 h-5 text-gray-400" />
@@ -82,6 +84,10 @@ export default function ActivityFeed({ activities = defaultActivities, onViewAll
         {activities.map((activity) => {
           const colors = getActivityColor(activity.type);
           const isExpanded = expandedId === activity.id;
+          // Translate type label if a matching key exists, otherwise show the provided title
+          const typeKey = `activity.types.${activity.type}` as const;
+          const localizedTitle = t(typeKey);
+          const displayTitle = localizedTitle.startsWith('⚠') ? activity.title : localizedTitle;
 
           return (
             <div
@@ -100,7 +106,7 @@ export default function ActivityFeed({ activities = defaultActivities, onViewAll
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 text-sm">{activity.title}</h4>
+                      <h4 className="font-semibold text-gray-900 text-sm">{displayTitle}</h4>
                       {isExpanded && (
                         <p className="text-gray-600 text-xs mt-1 line-clamp-3">{activity.description}</p>
                       )}
@@ -134,7 +140,7 @@ export default function ActivityFeed({ activities = defaultActivities, onViewAll
           onClick={onViewAll}
           className="text-orange-600 text-sm font-semibold hover:text-orange-700 transition-colors"
         >
-          See Detail →
+          {t('activity.seeDetail')}
         </button>
       </div>
     </div>

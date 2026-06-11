@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Sora:wght@100..800&family=Space+Grotesk:wght@300..700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Sora:wght@100..800&family=Space+Grotesk:wght@300..700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Share+Tech+Mono&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -7,5 +7,18 @@
   --font-tech: "Space Grotesk", sans-serif;
   --font-serif: "Playfair Display", serif;
   --font-retro: "Share Tech Mono", monospace;
+  --font-bengali: "Noto Sans Bengali", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* When <html> is set to lang="bn" by the language provider, swap the
+   base font to Noto Sans Bengali so glyphs render correctly across
+   the whole dashboard. The :lang() selector keeps the change scoped. */
+:root:lang(bn) body {
+  font-family: var(--font-bengali);
+}
+
+:root:lang(bn) .font-sans,
+:root:lang(bn) [class*="font-"] {
+  font-family: var(--font-bengali);
 }
 

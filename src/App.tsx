@@ -4,6 +4,7 @@ import { INITIAL_STOREFRONT_PROFILES, SANDBOX_RAW_LOGS } from "./data";
 import SmeDrawerMenu from "./components/SmeDrawerMenu";
 import RefactoredDashboard from "./components/RefactoredDashboard";
 import CustomerStorefront from "./components/CustomerStorefront";
+import { LanguageProvider } from "./i18n/LanguageContext";
 
 export default function App() {
   // Navigation & Security Views
@@ -166,69 +167,73 @@ export default function App() {
   if (currentPath.startsWith("/store/")) {
     const profileId = currentPath.substring("/store/".length);
     const targetProfile = storefrontProfiles.find(p => p.id === profileId) || storefrontProfiles[0];
-    
+
     return (
-      <div className="relative animate-fadeIn">
-         <CustomerStorefront 
-          activeProfile={targetProfile}
-          profiles={storefrontProfiles}
-          onSwitchProfile={(id) => navigate(`/store/${id}`)}
-          products={products}
-          onAddLog={handleAddLog}
-          onSmeLoginSuccess={() => {
-            setSmeLoggedIn(true);
-            navigate("/admin");
-          }}
-          smeLoggedIn={smeLoggedIn}
-          isStandalone={true}
-          isFreeTier={currentPlan === "free"}
-        />
-      </div>
+      <LanguageProvider>
+        <div className="relative animate-fadeIn">
+          <CustomerStorefront
+            activeProfile={targetProfile}
+            profiles={storefrontProfiles}
+            onSwitchProfile={(id) => navigate(`/store/${id}`)}
+            products={products}
+            onAddLog={handleAddLog}
+            onSmeLoginSuccess={() => {
+              setSmeLoggedIn(true);
+              navigate("/admin");
+            }}
+            smeLoggedIn={smeLoggedIn}
+            isStandalone={true}
+            isFreeTier={currentPlan === "free"}
+          />
+        </div>
+      </LanguageProvider>
     );
   }
 
   // VIEW 2: SME OPERATIONS DASHBOARD
   return (
-    <>
-      <RefactoredDashboard
-        userName={accountSettings.ownerName}
-        storefrontProfiles={storefrontProfiles}
-        activeProfileId={activeProfileId}
-        products={products}
-        rawLogs={rawLogs}
-        currentPlan={currentPlan}
-        isMenuOpen={isMenuOpen}
-        accountSettings={accountSettings}
-        smeLoggedIn={smeLoggedIn}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onSwitchProfile={handleSwitchProfile}
-        onUpdateProfiles={setStorefrontProfiles}
-        onUpdateProducts={setProducts}
-        onAddLog={handleAddLog}
-        onSelectPlan={setCurrentPlan}
-        onMenuToggle={() => setIsMenuOpen(true)}
-        onUpdateAccountSettings={setAccountSettings}
-        onLogout={() => {
-          setSmeLoggedIn(false);
-          navigate("/");
-        }}
-        onNavigateToStore={() => {
-          handleAddLog(`[NAV] Switched view perspective to standalone live storefront "${activeProfile.name}".`);
-          navigate("/store/" + activeProfileId);
-        }}
-      />
+    <LanguageProvider>
+      <>
+        <RefactoredDashboard
+          userName={accountSettings.ownerName}
+          storefrontProfiles={storefrontProfiles}
+          activeProfileId={activeProfileId}
+          products={products}
+          rawLogs={rawLogs}
+          currentPlan={currentPlan}
+          isMenuOpen={isMenuOpen}
+          accountSettings={accountSettings}
+          smeLoggedIn={smeLoggedIn}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onSwitchProfile={handleSwitchProfile}
+          onUpdateProfiles={setStorefrontProfiles}
+          onUpdateProducts={setProducts}
+          onAddLog={handleAddLog}
+          onSelectPlan={setCurrentPlan}
+          onMenuToggle={() => setIsMenuOpen(true)}
+          onUpdateAccountSettings={setAccountSettings}
+          onLogout={() => {
+            setSmeLoggedIn(false);
+            navigate("/");
+          }}
+          onNavigateToStore={() => {
+            handleAddLog(`[NAV] Switched view perspective to standalone live storefront "${activeProfile.name}".`);
+            navigate("/store/" + activeProfileId);
+          }}
+        />
 
-      <SmeDrawerMenu
-        isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        currentPlan={currentPlan}
-        onSelectPlan={setCurrentPlan}
-        storefrontCount={storefrontProfiles.length}
-        accountSettings={accountSettings}
-        onUpdateAccountSettings={setAccountSettings}
-        onAddLog={handleAddLog}
-      />
-    </>
+        <SmeDrawerMenu
+          isOpen={isMenuOpen}
+          onClose={() => setIsMenuOpen(false)}
+          currentPlan={currentPlan}
+          onSelectPlan={setCurrentPlan}
+          storefrontCount={storefrontProfiles.length}
+          accountSettings={accountSettings}
+          onUpdateAccountSettings={setAccountSettings}
+          onAddLog={handleAddLog}
+        />
+      </>
+    </LanguageProvider>
   );
 }

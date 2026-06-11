@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Search, Settings, Bell, ChevronDown, Menu, X, Store } from 'lucide-react';
 import { StorefrontProfile } from '../types';
+import { useT } from '../i18n/LanguageContext';
+import { LangSwitcher } from './LangSwitcher';
 
 export interface TabItem {
   id: string;
@@ -22,21 +24,23 @@ interface DashboardHeaderProps {
   menuOpen?: boolean;
 }
 
-const defaultTabs: TabItem[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'catalog', label: 'Catalog' },
-  { id: 'deployer', label: 'AI Deployer' },
-  { id: 'insights', label: 'Insights' },
-  { id: 'customizer', label: 'Customizer' },
-  { id: 'profiles', label: 'Profiles' },
-  { id: 'sheets', label: 'Sheets Board' }
+// The default tabs use i18n keys. They are resolved via t() inside the
+// component so they pick up the active language automatically.
+const defaultTabKeys: Array<{ id: string; i18nKey: string }> = [
+  { id: 'overview', i18nKey: 'tabs.overview' },
+  { id: 'catalog', i18nKey: 'tabs.catalog' },
+  { id: 'deployer', i18nKey: 'tabs.deployer' },
+  { id: 'insights', i18nKey: 'tabs.insights' },
+  { id: 'customizer', i18nKey: 'tabs.customizer' },
+  { id: 'profiles', i18nKey: 'tabs.profiles' },
+  { id: 'sheets', i18nKey: 'tabs.sheets' },
 ];
 
 export default function DashboardHeader({
   userName = "Akrom",
   activeTab = "overview",
   onTabChange,
-  tabs = defaultTabs,
+  tabs,
   storefrontProfiles = [],
   activeProfileId = "",
   onSwitchProfile,
@@ -47,9 +51,15 @@ export default function DashboardHeader({
   menuOpen = false
 }: DashboardHeaderProps) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const t = useT();
+
+  // If the caller didn't pass custom tabs, fall back to the i18n-aware defaults.
+  const resolvedTabs: TabItem[] =
+    tabs ??
+    defaultTabKeys.map(tk => ({ id: tk.id, label: t(tk.i18nKey) }));
 
   const activeProfile = storefrontProfiles.find(p => p.id === activeProfileId);
-  const activeProfileName = activeProfile ? activeProfile.name : "SME Dashboard";
+  const activeProfileName = activeProfile ? activeProfile.name : t("appName");
 
   const handleSignOut = () => {
     setShowProfileMenu(false);
@@ -88,7 +98,7 @@ export default function DashboardHeader({
 
             {/* Desktop Navigation Tabs */}
             <nav className="hidden xl:flex gap-1">
-              {tabs.map((tab) => (
+              {resolvedTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => onTabChange?.(tab.id)}
@@ -111,10 +121,13 @@ export default function DashboardHeader({
               <Search className="w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder={t("header.searchPlaceholder")}
                 className="bg-transparent text-xs text-gray-900 placeholder-gray-400 outline-none w-36 focus:w-48 transition-all"
               />
             </div>
+
+            {/* Language switcher (EN | বাংলা) */}
+            <LangSwitcher />
 
             {/* Live Website Button */}
             {onNavigateToStore && (
@@ -123,7 +136,7 @@ export default function DashboardHeader({
                 className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-750 hover:bg-orange-700 text-white rounded-lg text-xs font-black transition-all shadow-xs cursor-pointer active:scale-95"
               >
                 <Store className="w-3.5 h-3.5" />
-                <span>Live Site</span>
+                <span>{t("header.liveSite")}</span>
               </button>
             )}
 
@@ -131,7 +144,7 @@ export default function DashboardHeader({
             <button
               onClick={onOpenSettings}
               className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors cursor-pointer"
-              title="Open Settings Drawer"
+              title={t("header.openSettings")}
             >
               <Settings className="w-4.5 h-4.5" />
             </button>
@@ -163,20 +176,20 @@ export default function DashboardHeader({
                     onClick={() => { setShowProfileMenu(false); onOpenSettings?.(); }}
                     className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    Profile Settings
+                    {t("header.profileSettings")}
                   </button>
                   <button
                     onClick={() => { setShowProfileMenu(false); onOpenSettings?.(); }}
                     className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    Subscription Plan
+                    {t("header.subscriptionPlan")}
                   </button>
                   <hr className="border-gray-100 my-1" />
                   <button
                     onClick={handleSignOut}
                     className="w-full text-left px-4 py-2 text-xs text-red-650 text-red-650 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer font-bold"
                   >
-                    Sign out
+                    {t("header.signOut")}
                   </button>
                 </div>
               )}
@@ -192,7 +205,7 @@ export default function DashboardHeader({
         {/* Tablet / Mobile Navigation Tabs Row (visible below md/lg if not hamburger menu) */}
         <div className="hidden md:flex xl:hidden border-t border-gray-100 pt-3">
           <nav className="flex gap-1 overflow-x-auto pb-1 max-w-full">
-            {tabs.map((tab) => (
+            {resolvedTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => onTabChange?.(tab.id)}
@@ -211,7 +224,7 @@ export default function DashboardHeader({
         {/* Mobile menu expanded vertical stack */}
         {menuOpen && (
           <div className="md:hidden border-t border-gray-100 pt-3 flex flex-col gap-1.5 animate-fadeIn">
-            {tabs.map((tab) => (
+            {resolvedTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => {

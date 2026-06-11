@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 
 import { StorefrontProduct, StorefrontProfile, normalizeTargetSites } from "../types";
+import { useT } from "../i18n/LanguageContext";
 
 interface CustomerStorefrontProps {
   activeProfile: StorefrontProfile;
@@ -51,6 +52,7 @@ export default function CustomerStorefront({
   isStandalone = false,
   isFreeTier = true
 }: CustomerStorefrontProps) {
+  const t = useT();
   // Navigation & Authentication states
   const [authModal, setAuthModal] = useState<"none" | "customer" | "sme">("none");
   const [customerSession, setCustomerSession] = useState<{ email: string; name: string } | null>(null);
@@ -2963,7 +2965,7 @@ export default function CustomerStorefront({
 
       {/* FOOTER */}
       <footer className={`${thm.footerBg} py-8 px-4 text-center text-xs mt-auto opacity-80 border-t`}>
-        {activeProfile.name} © 2026. {activeProfile.tagline}. All catalogs synced via omnichannel spreadsheet.
+        {t('customerFooter', { name: activeProfile.name, tagline: activeProfile.tagline })}
       </footer>
             </div>
           )}

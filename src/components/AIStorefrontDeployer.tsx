@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Send, Zap } from 'lucide-react';
 import { StorefrontProfile, StorefrontProduct } from '../types';
+import { useT } from '../i18n/LanguageContext';
 
 export interface AIStorefrontDeployerProps {
   onDeploy?: (payload: {
@@ -32,10 +33,12 @@ export default function AIStorefrontDeployer({
   const [selectedStyle, setSelectedStyle] = useState<'tech' | 'retail' | 'wellness' | 'minimalist'>('tech');
   const [fontFamily, setFontFamily] = useState<'sans' | 'serif' | 'round' | 'mono'>('sans');
   const [headerLayout, setHeaderLayout] = useState<'minimalist' | 'centered' | 'asymmetric'>('minimalist');
+  const t = useT();
 
   const handleDeploy = () => {
-    const cleanName = storeName.trim() || 'Invowise Storefront';
-    const cleanDescription = description.trim() || `Instant storefront deployment for ${cleanName}`;
+    const fallbackName = t('deployer.pbDefaultName');
+    const cleanName = storeName.trim() || fallbackName;
+    const cleanDescription = description.trim() || t('deployer.pbDefaultDescription', { name: cleanName });
     onDeploy?.({
       name: cleanName,
       description: cleanDescription,
@@ -51,11 +54,11 @@ export default function AIStorefrontDeployer({
 
   const handleQuickDeploy = (style: string) => {
     const templates = {
-      tech: 'AI-powered tech gadgets store with modern design',
-      retail: 'Fashion and lifestyle retail storefront',
-      wellness: 'Health and wellness products marketplace'
+      tech: t('deployer.pbTemplateTech'),
+      retail: t('deployer.pbTemplateRetail'),
+      wellness: t('deployer.pbTemplateWellness')
     } as const;
-    const presetName = style === 'tech' ? 'Cyber Edge' : style === 'retail' ? 'Luxe Market' : 'Wellness Club';
+    const presetName = style === 'tech' ? t('deployer.pbPresetTech') : style === 'retail' ? t('deployer.pbPresetRetail') : t('deployer.pbPresetWellness');
     setSelectedStyle(style as 'tech' | 'retail' | 'wellness');
     setStoreName(presetName);
     setDescription(templates[style as keyof typeof templates]);
@@ -69,9 +72,9 @@ export default function AIStorefrontDeployer({
           <div className="p-2 bg-orange-100 rounded-lg">
             <Sparkles className="w-5 h-5 text-orange-600" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900">Push-Button Deploy</h3>
+          <h3 className="text-lg font-bold text-gray-900">{t('deployer.pbTitle')}</h3>
         </div>
-        <p className="text-gray-600 text-xs">Launch an instant virtual tenant with theme, font, and layout presets.</p>
+        <p className="text-gray-600 text-xs">{t('deployer.pbSubtitle')}</p>
       </div>
 
       {/* Main Input */}
@@ -79,42 +82,42 @@ export default function AIStorefrontDeployer({
         <input
           value={storeName}
           onChange={(e) => setStoreName(e.target.value)}
-          placeholder="Store Name"
+          placeholder={t('deployer.pbStoreName')}
           className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
         />
 
         <select value={selectedStyle} onChange={(e) => setSelectedStyle(e.target.value as any)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
-          <option value="tech">Tech / Futuristic</option>
-          <option value="retail">Retail / Lifestyle</option>
-          <option value="wellness">Wellness / Calm</option>
-          <option value="minimalist">Minimalist</option>
+          <option value="tech">{t('deployer.pbStyleTech')}</option>
+          <option value="retail">{t('deployer.pbStyleRetail')}</option>
+          <option value="wellness">{t('deployer.pbStyleWellness')}</option>
+          <option value="minimalist">{t('deployer.pbStyleMinimalist')}</option>
         </select>
 
         <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value as any)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
-          <option value="sans">System Sans</option>
-          <option value="serif">Serif</option>
-          <option value="round">Display Round</option>
-          <option value="mono">Mono</option>
+          <option value="sans">{t('deployer.pbFontSans')}</option>
+          <option value="serif">{t('deployer.pbFontSerif')}</option>
+          <option value="round">{t('deployer.pbFontRound')}</option>
+          <option value="mono">{t('deployer.pbFontMono')}</option>
         </select>
 
         <select value={headerLayout} onChange={(e) => setHeaderLayout(e.target.value as any)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
-          <option value="minimalist">Minimalist Single Row</option>
-          <option value="centered">Centered Brand Overlay</option>
-          <option value="asymmetric">Asymmetric Left Header</option>
+          <option value="minimalist">{t('deployer.pbHeaderMinimalist')}</option>
+          <option value="centered">{t('deployer.pbHeaderCentered')}</option>
+          <option value="asymmetric">{t('deployer.pbHeaderAsymmetric')}</option>
         </select>
 
         <div className="relative flex-1">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Optional launch copy or theme brief"
+            placeholder={t('deployer.pbDescriptionPlaceholder')}
             className="w-full h-24 px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none resize-none"
           />
         </div>
 
         {/* Character Count */}
         <div className="text-gray-500 text-xs">
-          {description.length} / 500 words
+          {t('deployer.pbCharCount', { count: description.length })}
         </div>
 
         {/* Action Buttons */}
@@ -125,12 +128,12 @@ export default function AIStorefrontDeployer({
             className="flex-1 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <Send className="w-4 h-4" />
-            Deploy Website
+            {t('deployer.pbDeploy')}
           </button>
           <button
             disabled={isLoading}
             className="p-2.5 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center justify-center"
-            title="Quick deploy"
+            title={t('deployer.pbQuickTooltip')}
           >
             <Zap className="w-4 h-4" />
           </button>
@@ -138,12 +141,12 @@ export default function AIStorefrontDeployer({
 
         {/* Quick Templates */}
         <div className="border-t border-gray-100 pt-4">
-          <p className="text-gray-600 text-xs font-semibold mb-3">Quick Templates</p>
+          <p className="text-gray-600 text-xs font-semibold mb-3">{t('deployer.pbQuickTemplates')}</p>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { id: 'tech', label: 'Tech', emoji: '💻' },
-              { id: 'retail', label: 'Retail', emoji: '🛍️' },
-              { id: 'wellness', label: 'Wellness', emoji: '🧘' }
+              { id: 'tech', label: t('deployer.pbQuickTech'), emoji: '💻' },
+              { id: 'retail', label: t('deployer.pbQuickRetail'), emoji: '🛍️' },
+              { id: 'wellness', label: t('deployer.pbQuickWellness'), emoji: '🧘' }
             ].map((template) => (
               <button
                 key={template.id}
@@ -163,7 +166,7 @@ export default function AIStorefrontDeployer({
       {isLoading && (
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
           <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-          <p className="text-blue-700 text-xs font-medium">Deploying storefront...</p>
+          <p className="text-blue-700 text-xs font-medium">{t('deployer.pbDeploying')}</p>
         </div>
       )}
     </div>

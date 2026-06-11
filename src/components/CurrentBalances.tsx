@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
+import { useT } from '../i18n/LanguageContext';
 
 interface BalanceChartProps {
   data?: Array<{ month: string; amount: number }>;
@@ -16,18 +17,19 @@ const defaultData = [
   { month: 'Jun', amount: 18 }
 ];
 
-export default function CurrentBalances({ 
-  data = defaultData, 
+export default function CurrentBalances({
+  data = defaultData,
   currentBalance = '15,890.00',
   trend = 20
 }: BalanceChartProps) {
   const maxAmount = Math.max(...data.map(d => d.amount));
+  const t = useT();
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-bold text-gray-900 mb-1">Current Balances</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">{t('balances.currentBalance')}</h3>
           <p className="text-gray-600 text-sm">Revenue trend across stores</p>
         </div>
         <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -43,24 +45,27 @@ export default function CurrentBalances({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-green-600 font-semibold text-sm">↑ {trend}%</span>
-          <span className="text-gray-500 text-xs">from last month</span>
+          <span className="text-gray-500 text-xs">{t('balances.trendUp', { pct: trend })}</span>
         </div>
       </div>
 
       {/* Bar Chart */}
       <div className="flex items-end gap-3 h-48 justify-between">
-        {data.map((item, idx) => (
-          <div key={idx} className="flex flex-col items-center flex-1">
-            <div className="w-full flex items-end justify-center h-32">
-              <div
-                className="w-8 bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-lg transition-all hover:shadow-lg"
-                style={{ height: `${(item.amount / maxAmount) * 128}px` }}
-                title={`${item.month}: ${item.amount}K`}
-              />
+        {data.map((item, idx) => {
+          const monthLabel = (t(`balances.months.${item.month}`) as string) || item.month;
+          return (
+            <div key={idx} className="flex flex-col items-center flex-1">
+              <div className="w-full flex items-end justify-center h-32">
+                <div
+                  className="w-8 bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-lg transition-all hover:shadow-lg"
+                  style={{ height: `${(item.amount / maxAmount) * 128}px` }}
+                  title={`${monthLabel}: ${item.amount}K`}
+                />
+              </div>
+              <span className="text-gray-600 text-xs font-medium mt-2">{monthLabel}</span>
             </div>
-            <span className="text-gray-600 text-xs font-medium mt-2">{item.month}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Legend */}

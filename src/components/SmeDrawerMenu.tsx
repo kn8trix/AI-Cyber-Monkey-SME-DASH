@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { 
-  X, 
-  User, 
-  CreditCard, 
-  Shield, 
-  Check, 
-  Save, 
-  Sparkles, 
-  Building2, 
+import {
+  X,
+  User,
+  CreditCard,
+  Shield,
+  Check,
+  Save,
+  Sparkles,
+  Building2,
   HelpCircle,
   Phone,
   Mail,
@@ -16,6 +16,7 @@ import {
   ShieldAlert
 } from "lucide-react";
 import { StorefrontProfile } from "../types";
+import { useT } from "../i18n/LanguageContext";
 
 interface SmeDrawerMenuProps {
   isOpen: boolean;
@@ -45,9 +46,11 @@ export default function SmeDrawerMenu({
   onUpdateAccountSettings,
   onAddLog
 }: SmeDrawerMenuProps) {
+  const t = useT();
+
   // Drawer Active Sub-tab
   const [activeTab, setActiveTab] = useState<"account" | "plans" | "terms">("account");
-  
+
   // Local form states to maintain inputs before saving
   const [formName, setFormName] = useState(accountSettings.ownerName);
   const [formEmail, setFormEmail] = useState(accountSettings.email);
@@ -76,10 +79,11 @@ export default function SmeDrawerMenu({
       alertNotifications: formAlerts,
       autoSyncInvoices: formSync
     });
-    
-    const formattedLog = `[SME-ACCOUNT] ${new Date().toLocaleTimeString()}: Operator settings optimized for owner "${formName}" of "${formCompany}". Synchronized across database.`;
+
+    const logBody = t('drawer.savedLog', { name: formName, company: formCompany });
+    const formattedLog = `[SME-ACCOUNT] ${new Date().toLocaleTimeString()}: ${logBody}`;
     onAddLog(formattedLog);
-    alert("Settings saved successfully and logged in terminal feed!");
+    alert(t('drawer.savedToast'));
   };
 
   // Subscription Pricing calculations
@@ -93,17 +97,18 @@ export default function SmeDrawerMenu({
 
   const handleSelectPlanWithLogging = (plan: "free" | "monthly" | "yearly") => {
     onSelectPlan(plan);
-    let planLabel = "Free Core Tier";
+    let planLabel = t('drawer.planFree');
     let planCost = "$0.00";
     if (plan === "monthly") {
-      planLabel = "Monthly Pro Enterprise";
+      planLabel = t('drawer.planMonthly');
       planCost = `$${totalMonthlyPrice.toFixed(2)}/mo`;
     } else if (plan === "yearly") {
-      planLabel = "Yearly Platinum Suite";
+      planLabel = t('drawer.planYearly');
       planCost = `$${totalYearlyPrice.toFixed(2)}/yr`;
     }
-    
-    onAddLog(`[CMS-PLAN] ${new Date().toLocaleTimeString()}: Subscription updated to [${planLabel.toUpperCase()}] pricing tier. Expected automated invoicing calculation of ${planCost}. Storefront ad systems immediately adapted.`);
+
+    const logBody = t('drawer.planLog', { plan: planLabel.toUpperCase(), cost: planCost });
+    onAddLog(`[CMS-PLAN] ${new Date().toLocaleTimeString()}: ${logBody}`);
   };
 
   return (
@@ -133,30 +138,30 @@ export default function SmeDrawerMenu({
               <span className="p-1.5 bg-indigo-500 text-white rounded-lg">
                 <Building2 className="w-4 h-4" />
               </span>
-              <h2 className="text-base font-black text-slate-900 tracking-tight">SME General control Panel</h2>
+              <h2 className="text-base font-black text-slate-900 tracking-tight">{t('drawer.title')}</h2>
             </div>
-            
-            <button 
+
+            <button
               onClick={onClose}
               className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-lg transition-colors cursor-pointer"
-              title="Close Panel"
+              title={t('drawer.close')}
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
             <span className="text-[10px] bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded font-mono uppercase">
-              Stores: {storefrontCount} Standalone
+              {t('drawer.storesCount', { count: storefrontCount })}
             </span>
             <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded font-mono uppercase ${
-              currentPlan === 'free' 
-                ? 'bg-amber-100 text-amber-850' 
+              currentPlan === 'free'
+                ? 'bg-amber-100 text-amber-850'
                 : currentPlan === 'monthly'
                 ? 'bg-emerald-100 text-emerald-800'
                 : 'bg-indigo-100 text-indigo-800'
             }`}>
-              Tier: {currentPlan === 'free' ? 'Ad-Supported Free' : currentPlan === 'monthly' ? 'Monthly Pro' : 'Yearly Platinum'}
+              {currentPlan === 'free' ? t('drawer.tierFree') : currentPlan === 'monthly' ? t('drawer.tierMonthly') : t('drawer.tierYearly')}
             </span>
           </div>
         </div>
@@ -172,9 +177,9 @@ export default function SmeDrawerMenu({
             }`}
           >
             <User className="w-3.5 h-3.5" />
-            Account
+            {t('drawer.tabAccount')}
           </button>
-          
+
           <button
             onClick={() => setActiveTab("plans")}
             className={`px-3.5 py-2 rounded-t-xl text-xs font-black transition-all flex items-center gap-1.5 border-b-2 cursor-pointer ${
@@ -184,10 +189,10 @@ export default function SmeDrawerMenu({
             }`}
           >
             <CreditCard className="w-3.5 h-3.5" />
-            Plans
-            <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1 py-0.2 rounded font-black">$ Scaling</span>
+            {t('drawer.tabPlans')}
+            <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1 py-0.2 rounded font-black">{t('drawer.scalingBadge')}</span>
           </button>
-          
+
           <button
             onClick={() => setActiveTab("terms")}
             className={`px-3.5 py-2 rounded-t-xl text-xs font-black transition-all flex items-center gap-1.5 border-b-2 cursor-pointer ${
@@ -197,7 +202,7 @@ export default function SmeDrawerMenu({
             }`}
           >
             <Shield className="w-3.5 h-3.5" />
-            Terms
+            {t('drawer.tabTerms')}
           </button>
         </div>
 
@@ -209,12 +214,12 @@ export default function SmeDrawerMenu({
             <form onSubmit={handleSaveAccount} className="space-y-4 text-left">
               <div className="border bg-slate-50/40 p-4 rounded-2xl border-slate-100 space-y-3">
                 <span className="text-[10px] bg-indigo-50 text-indigo-700 font-extrabold uppercase px-2 py-0.5 rounded font-mono">
-                  Identity Node Parameters
+                  {t('drawer.identityParams')}
                 </span>
-                
+
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Owner Full Name
+                    {t('drawer.ownerName')}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-slate-400">
@@ -232,7 +237,7 @@ export default function SmeDrawerMenu({
 
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Administrative Email
+                    {t('drawer.adminEmail')}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-slate-400">
@@ -251,7 +256,7 @@ export default function SmeDrawerMenu({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Enterprise Company
+                      {t('drawer.company')}
                     </label>
                     <input 
                       type="text" 
@@ -263,7 +268,7 @@ export default function SmeDrawerMenu({
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Support Phone Number
+                      {t('drawer.phone')}
                     </label>
                     <input 
                       type="text" 
@@ -277,16 +282,16 @@ export default function SmeDrawerMenu({
 
               <div className="border bg-slate-50/40 p-4 rounded-2xl border-slate-100 space-y-4">
                 <span className="text-[10px] bg-indigo-50 text-indigo-700 font-extrabold uppercase px-2 py-0.5 rounded font-mono">
-                  Administrative Automations
+                  {t('drawer.automations')}
                 </span>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <h5 className="text-xs font-bold text-slate-800">Checkout Push Alerts</h5>
-                    <p className="text-[10px] text-slate-400">Trigger realtime dashboard log outputs for every client dispatch event.</p>
+                    <h5 className="text-xs font-bold text-slate-800">{t('drawer.alertTitle')}</h5>
+                    <p className="text-[10px] text-slate-400">{t('drawer.alertDesc')}</p>
                   </div>
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     checked={formAlerts}
                     onChange={(e) => setFormAlerts(e.target.checked)}
                     className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -295,11 +300,11 @@ export default function SmeDrawerMenu({
 
                 <div className="flex items-center justify-between border-t border-slate-100 pt-3">
                   <div>
-                    <h5 className="text-xs font-bold text-slate-800">Auto-Update Billing Ledgers</h5>
-                    <p className="text-[10px] text-slate-400">Sync ledger invoice lists inside sheets based on hosted profiles count automatically.</p>
+                    <h5 className="text-xs font-bold text-slate-800">{t('drawer.syncTitle')}</h5>
+                    <p className="text-[10px] text-slate-400">{t('drawer.syncDesc')}</p>
                   </div>
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     checked={formSync}
                     onChange={(e) => setFormSync(e.target.checked)}
                     className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -312,7 +317,7 @@ export default function SmeDrawerMenu({
                 className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-750 bg-indigo-600 hover:scale-[1.01] active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer uppercase font-mono tracking-wider"
               >
                 <Save className="w-4 h-4" />
-                Save Parameters
+                {t('drawer.save')}
               </button>
             </form>
           )}
@@ -323,112 +328,112 @@ export default function SmeDrawerMenu({
               <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100/60 space-y-2.5">
                 <div className="flex items-center gap-1 text-indigo-800">
                   <Sparkles className="w-4 h-4" />
-                  <span className="text-[11px] font-black uppercase font-mono">Dynamic Scaling Core</span>
+                  <span className="text-[11px] font-black uppercase font-mono">{t('drawer.scalingBadge')}</span>
                 </div>
-                <h4 className="text-sm font-black text-slate-900 tracking-tight">Active Domain-Based Pricing Slider</h4>
+                <h4 className="text-sm font-black text-slate-900 tracking-tight">{t('drawer.plansHeading')}</h4>
                 <p className="text-[10.5px] text-slate-600 leading-normal font-medium">
-                  Plans are calculated using a baseline hosting fee plus <strong className="text-indigo-700">$7.00 per hosted storefront website</strong>. Deleting standalone storefront profiles immediately lowers downstream monthly and yearly active rate totals.
+                  {t('drawer.plansSub', { price: t('drawer.perStorePrice') })}
                 </p>
-                
+
                 <div className="grid grid-cols-3 bg-white p-2 text-center rounded-xl border border-slate-150 text-[11px] font-mono shadow-inner items-center divide-x divide-slate-100">
                   <div>
-                    <span className="block text-slate-450 text-[9px] uppercase">Active Stores</span>
+                    <span className="block text-slate-450 text-[9px] uppercase">{t('drawer.activeStores')}</span>
                     <span className="font-extrabold text-slate-800 text-sm">{storefrontCount}</span>
                   </div>
                   <div>
-                    <span className="block text-slate-450 text-[9px] uppercase">Added Cost</span>
+                    <span className="block text-slate-450 text-[9px] uppercase">{t('drawer.addedCost')}</span>
                     <span className="font-extrabold text-rose-600 text-xs">+${(storefrontCount * increasePerStore).toFixed(2)}/mo</span>
                   </div>
                   <div>
-                    <span className="block text-slate-450 text-[9px] uppercase">Yearly Scale</span>
+                    <span className="block text-slate-450 text-[9px] uppercase">{t('drawer.yearlyScale')}</span>
                     <span className="font-extrabold text-indigo-600 text-xs">+${(storefrontCount * increasePerStore * 10).toFixed(2)}/yr</span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest block font-mono">Choose Service Tier</h4>
-                
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest block font-mono">{t('drawer.chooseTier')}</h4>
+
                 {/* 1. Free Tier */}
-                <div 
+                <div
                   onClick={() => handleSelectPlanWithLogging("free")}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                    currentPlan === 'free' 
-                      ? 'border-amber-500 bg-amber-50/20' 
+                    currentPlan === 'free'
+                      ? 'border-amber-500 bg-amber-50/20'
                       : 'border-slate-100 hover:border-slate-300 bg-white'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-1">
                     <div>
-                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[8px] font-extrabold rounded uppercase font-mono mr-1.5">Free Core</span>
-                      <h4 className="text-xs font-black text-slate-800 inline">Ad-Supported Sandbox</h4>
+                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[8px] font-extrabold rounded uppercase font-mono mr-1.5">{t('drawer.tierFreeBadge')}</span>
+                      <h4 className="text-xs font-black text-slate-800 inline">{t('drawer.tierFreeName')}</h4>
                     </div>
                     <span className="font-extrabold text-sm text-slate-800 font-mono">$0.00</span>
                   </div>
                   <p className="text-[10px] text-slate-500 leading-tight">
-                    Full catalog management for separate standalone storefronts. Contains active simulated advertisement placement monetization channels on client sites.
+                    {t('drawer.tierFreeDesc')}
                   </p>
                   {currentPlan === 'free' && (
                     <div className="mt-2.5 flex items-center gap-1 text-[10px] text-amber-700 font-bold font-mono">
-                      <Check className="w-3.5 h-3.5" /> Checked - Simulated Ads are Deployed
+                      <Check className="w-3.5 h-3.5" /> {t('drawer.tierFreeSelected')}
                     </div>
                   )}
                 </div>
 
                 {/* 2. Monthly Plan */}
-                <div 
+                <div
                   onClick={() => handleSelectPlanWithLogging("monthly")}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                    currentPlan === 'monthly' 
-                      ? 'border-indigo-600 bg-indigo-50/10' 
+                    currentPlan === 'monthly'
+                      ? 'border-indigo-600 bg-indigo-50/10'
                       : 'border-slate-100 hover:border-slate-300 bg-white'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-1">
                     <div>
-                      <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-800 text-[8px] font-extrabold rounded uppercase font-mono mr-1.5">PRO MONTHLY</span>
-                      <h4 className="text-xs font-black text-slate-800 inline">Clean Subscription</h4>
+                      <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-800 text-[8px] font-extrabold rounded uppercase font-mono mr-1.5">{t('drawer.tierMonthlyBadge')}</span>
+                      <h4 className="text-xs font-black text-slate-800 inline">{t('drawer.tierMonthlyName')}</h4>
                     </div>
                     <div className="text-right">
                       <span className="font-extrabold text-sm text-slate-800 font-mono block leading-none">${totalMonthlyPrice.toFixed(2)}</span>
-                      <span className="text-[8px] text-slate-400 font-mono font-bold uppercase">/ Month</span>
+                      <span className="text-[8px] text-slate-400 font-mono font-bold uppercase">{t('drawer.perMonth')}</span>
                     </div>
                   </div>
                   <p className="text-[10px] text-slate-505 text-slate-500 leading-tight">
-                    Removes all simulated layout advertisements from hosted customer sites. High performance database query buffers enabled. Just $10/mo base rate + $7/mo per storefront.
+                    {t('drawer.tierMonthlyDesc')}
                   </p>
                   {currentPlan === 'monthly' && (
                     <div className="mt-2.5 flex items-center gap-1 text-[10px] text-indigo-700 font-bold font-mono">
-                      <Check className="w-3.5 h-3.5" /> Selected Pro Mode - Ad system removed
+                      <Check className="w-3.5 h-3.5" /> {t('drawer.tierMonthlySelected')}
                     </div>
                   )}
                 </div>
 
                 {/* 3. Yearly Plan */}
-                <div 
+                <div
                   onClick={() => handleSelectPlanWithLogging("yearly")}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                    currentPlan === 'yearly' 
-                      ? 'border-indigo-600 bg-gradient-to-r from-indigo-50/10 to-violet-50/10' 
+                    currentPlan === 'yearly'
+                      ? 'border-indigo-600 bg-gradient-to-r from-indigo-50/10 to-violet-50/10'
                       : 'border-slate-100 hover:border-slate-300 bg-white'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-1">
                     <div>
-                      <span className="px-1.5 py-0.5 bg-violet-100 text-violet-800 text-[8px] font-extrabold rounded uppercase font-mono mr-1.5">YEARLY PLATINUM</span>
-                      <h4 className="text-xs font-black text-slate-800 inline">Enterprise Bundle</h4>
+                      <span className="px-1.5 py-0.5 bg-violet-100 text-violet-800 text-[8px] font-extrabold rounded uppercase font-mono mr-1.5">{t('drawer.tierYearlyBadge')}</span>
+                      <h4 className="text-xs font-black text-slate-800 inline">{t('drawer.tierYearlyName')}</h4>
                     </div>
                     <div className="text-right">
                       <span className="font-extrabold text-sm text-slate-800 font-mono block leading-none">${totalYearlyPrice.toFixed(2)}</span>
-                      <span className="text-[8px] text-slate-400 font-mono font-bold uppercase">/ Year (Save 20s%)</span>
+                      <span className="text-[8px] text-slate-400 font-mono font-bold uppercase">{t('drawer.perYear')}</span>
                     </div>
                   </div>
                   <p className="text-[10px] text-slate-550 text-slate-500 leading-tight">
-                    Get full annual priority support routing. Completely clean ad-free storefront custom branding. Base $100/yr rate + $70/yr per hosted storefront.
+                    {t('drawer.tierYearlyDesc')}
                   </p>
                   {currentPlan === 'yearly' && (
                     <div className="mt-2.5 flex items-center gap-1 text-[10px] text-violet-700 font-bold font-mono">
-                      <Check className="w-3.5 h-3.5" /> Selected Annual Suite - Best Value
+                      <Check className="w-3.5 h-3.5" /> {t('drawer.tierYearlySelected')}
                     </div>
                   )}
                 </div>
@@ -441,33 +446,33 @@ export default function SmeDrawerMenu({
             <div className="space-y-4 text-left">
               <div className="flex items-center gap-2 mb-2">
                 <ShieldAlert className="w-5 h-5 text-indigo-500" />
-                <h4 className="text-xs font-black text-slate-805 uppercase tracking-wide font-sans">Global Platform Service Agreements</h4>
+                <h4 className="text-xs font-black text-slate-805 uppercase tracking-wide font-sans">{t('drawer.termsTitle')}</h4>
               </div>
 
               <div className="h-96 overflow-y-auto border border-slate-150 p-4 rounded-2xl bg-slate-50 text-[10px] text-slate-505 leading-relaxed space-y-3 font-medium select-none font-sans">
-                <p className="font-bold border-b pb-1.5 text-slate-800">Effective Date: June 6, 2026</p>
-                <h5 className="font-extrabold text-slate-700 uppercase">1. Interactive Sandbox Scope</h5>
+                <p className="font-bold border-b pb-1.5 text-slate-800">{t('drawer.termsEffective')}</p>
+                <h5 className="font-extrabold text-slate-700 uppercase">{t('drawer.termsScope')}</h5>
                 <p>
-                  The sovereign platform acts as an agentic sandbox application suite designed to host isolated, standalone, decoupled customer-facing website routes. No administrative connections are exposed to third-party endpoints unless explicitly verified by the operator.
-                </p>
-                
-                <h5 className="font-extrabold text-slate-705 uppercase">2. Ad Monetization Disclosure (Free Tier)</h5>
-                <p>
-                  Under the Free Core sandbox subscription level, the operator acknowledges and agrees that the platform reserves the right to display simulated, dynamic advertising banner blocks and sidebar product blocks on any public client-facing storefront domain channels. These advertisements help defray high speed server hosting, routing node and persistent indexing storage overhead.
-                </p>
-                
-                <h5 className="font-extrabold text-slate-700 uppercase">3. Storefront Billing Scaling</h5>
-                <p>
-                  All premium subscriptions operate with dynamic pricing, scaled live according to the number of hosted storefront website configurations mapped within the 'Web Profiles' module. The baseline monthly fee of $10.00 is subject to an additional cost of $7.00 per month for each physical website listed. Removing redundant web profiles immediately terminates relevant storefront surcharges at the start of the next cycle.
+                  {t('drawer.termsScopeBody')}
                 </p>
 
-                <h5 className="font-extrabold text-slate-700 uppercase">4. Data Ownership &amp; Sheets Synclinks</h5>
+                <h5 className="font-extrabold text-slate-705 uppercase">{t('drawer.termsAds')}</h5>
                 <p>
-                  Product catalogs and live telemetry customer feedback queues belong fully to the operator. Google Sheets sync engines operate through native sandbox boundaries, writing secure tabular datasets to the simulated cloud sheets workspace instantly.
+                  {t('drawer.termsAdsBody')}
                 </p>
-                
+
+                <h5 className="font-extrabold text-slate-700 uppercase">{t('drawer.termsBilling')}</h5>
+                <p>
+                  {t('drawer.termsBillingBody')}
+                </p>
+
+                <h5 className="font-extrabold text-slate-700 uppercase">{t('drawer.termsOwnership')}</h5>
+                <p>
+                  {t('drawer.termsOwnershipBody')}
+                </p>
+
                 <p className="text-[9.5px] text-slate-400 italic pt-2">
-                  *By clicking 'Check' or maintaining an active account list, you submit full compliance parameters to these integrated licensing agreements.
+                  {t('drawer.termsFooter')}
                 </p>
               </div>
             </div>
@@ -478,17 +483,17 @@ export default function SmeDrawerMenu({
         {/* Footer info showing billing forecast parameters */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 text-center flex flex-col gap-1 items-center justify-center shrink-0">
           <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-700 font-mono">
-            <span>Forecast Amount:</span>
+            <span>{t('drawer.forecast')}</span>
             <span className="text-indigo-600 text-xs font-black">
-              {currentPlan === 'free' 
-                ? '$0.00 / month' 
+              {currentPlan === 'free'
+                ? `$0.00 ${t('drawer.perMonthShort')}`
                 : currentPlan === 'monthly'
-                ? `$${totalMonthlyPrice.toFixed(2)} / month`
-                : `$${totalYearlyPrice.toFixed(2)} / year`
+                ? `$${totalMonthlyPrice.toFixed(2)} ${t('drawer.perMonthShort')}`
+                : `$${totalYearlyPrice.toFixed(2)} ${t('drawer.perYearShort')}`
               }
             </span>
           </div>
-          <p className="text-[9px] text-slate-400 font-medium">Automatic adjustments applied instantly based on profiles.</p>
+          <p className="text-[9px] text-slate-400 font-medium">{t('drawer.forecastNote')}</p>
         </div>
       </div>
     </div>
