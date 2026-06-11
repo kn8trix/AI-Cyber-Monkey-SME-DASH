@@ -169,7 +169,13 @@ class ProvisioningService {
    */
   async listTenants(limit: number = 100, offset: number = 0) {
     const result = await masterPool.query(
-      'SELECT id, domain, name, owner_email, plan, status, created_at FROM tenants ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+      `SELECT id, domain, name, owner_email, owner_name, plan, status, backend_port,
+              s3_bucket, max_products, created_at, updated_at,
+              vercel_project_id, vercel_project_name, vercel_deployment_id,
+              vercel_deployment_url, deployment_status, deployed_at, last_deploy_error
+         FROM tenants
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
     return result.rows;
@@ -201,6 +207,85 @@ class ProvisioningService {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Update a tenant's Vercel deployment metadata. Called by the
+   * deploy routes in `multi-tenant-routes.ts`.
+   *
+   * Pass `null` to clear a field.
+   */
+  async updateTenantDeployment(
+    tenantId: string,
+    fields: {
+      vercelProjectId?: string | null;
+      vercelProjectName?: string | null;
+      vercelDeploymentId?: string | null;
+      vercelDeploymentUrl?: string | null;
+      deploymentStatus?: string;
+      deployedAt?: Date | null;
+      lastDeployError?: string | null;
+    }
+  ) {
+    const client = await masterPool.connect();
+    try {
+      // Build a dynamic SET clause with parameterised values so we
+      // never concatenate user input.
+      const sets: string[] = [];
+      const values: any[] = [];
+      let i = 1;
+      const add = (col: string, val: any) => {
+        sets.push(`${col} = $${i++}`);
+        values.push(val);
+      };
+
+      if ("vercelProjectId" in fields) add("vercel_project_id", fields.vercelProjectId);
+      if ("vercelProjectName" in fields) add("vercel_project_name", fields.vercelProjectName);
+      if ("vercelDeploymentId" in fields) add("vercel_deployment_id", fields.vercelDeploymentId);
+      if ("vercelDeploymentUrl" in fields) add("vercel_deployment_url", fields.vercelDeploymentUrl);
+      if ("deploymentStatus" in fields) add("deployment_status", fields.deploymentStatus);
+      if ("deployedAt" in fields) add("deployed_at", fields.deployedAt);
+      if ("lastDeployError" in fields) add("last_deploy_error", fields.lastDeployError);
+
+      if (sets.length === 0) return { status: "noop" };
+
+      // Always bump updated_at
+      sets.push(`updated_at = CURRENT_TIMESTAMP`);
+
+      values.push(tenantId);
+      const sql = `UPDATE tenants SET ${sets.join(", ")} WHERE id = $${i}`;
+      await client.query(sql, values);
+
+      await client.query(
+        `INSERT INTO audit_logs (tenant_id, action, details)
+         VALUES ($1, $2, $3)`,
+        [
+          tenantId,
+          "TENANT_DEPLOYMENT_UPDATED",
+          JSON.stringify({
+            status: fields.deploymentStatus,
+            url: fields.vercelDeploymentUrl,
+            project: fields.vercelProjectName,
+          }),
+        ]
+      );
+
+      return { status: "success" };
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get tenant by ID, ignoring status (so deploy routes can find
+   * `suspended` and `deleted` tenants too).
+   */
+  async getTenantByIdAnyStatus(tenantId: string) {
+    const result = await masterPool.query(
+      "SELECT * FROM tenants WHERE id = $1",
+      [tenantId]
+    );
+    return result.rows[0] || null;
   }
 
   /**

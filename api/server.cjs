@@ -106,6 +106,16 @@ async function initializeMasterSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await client.query(`
+      ALTER TABLE tenants
+        ADD COLUMN IF NOT EXISTS vercel_project_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS vercel_project_name VARCHAR,
+        ADD COLUMN IF NOT EXISTS vercel_deployment_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS vercel_deployment_url VARCHAR,
+        ADD COLUMN IF NOT EXISTS deployment_status VARCHAR DEFAULT 'not_deployed',
+        ADD COLUMN IF NOT EXISTS deployed_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS last_deploy_error TEXT;
+    `);
     console.log("\u2713 Master schema initialized");
   } finally {
     client.release();
@@ -305,7 +315,13 @@ var ProvisioningService = class {
    */
   async listTenants(limit = 100, offset = 0) {
     const result = await masterPool.query(
-      "SELECT id, domain, name, owner_email, plan, status, created_at FROM tenants ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+      `SELECT id, domain, name, owner_email, owner_name, plan, status, backend_port,
+              s3_bucket, max_products, created_at, updated_at,
+              vercel_project_id, vercel_project_name, vercel_deployment_id,
+              vercel_deployment_url, deployment_status, deployed_at, last_deploy_error
+         FROM tenants
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
     return result.rows;
@@ -333,6 +349,63 @@ var ProvisioningService = class {
     } finally {
       client.release();
     }
+  }
+  /**
+   * Update a tenant's Vercel deployment metadata. Called by the
+   * deploy routes in `multi-tenant-routes.ts`.
+   *
+   * Pass `null` to clear a field.
+   */
+  async updateTenantDeployment(tenantId, fields) {
+    const client = await masterPool.connect();
+    try {
+      const sets = [];
+      const values = [];
+      let i = 1;
+      const add = (col, val) => {
+        sets.push(`${col} = $${i++}`);
+        values.push(val);
+      };
+      if ("vercelProjectId" in fields) add("vercel_project_id", fields.vercelProjectId);
+      if ("vercelProjectName" in fields) add("vercel_project_name", fields.vercelProjectName);
+      if ("vercelDeploymentId" in fields) add("vercel_deployment_id", fields.vercelDeploymentId);
+      if ("vercelDeploymentUrl" in fields) add("vercel_deployment_url", fields.vercelDeploymentUrl);
+      if ("deploymentStatus" in fields) add("deployment_status", fields.deploymentStatus);
+      if ("deployedAt" in fields) add("deployed_at", fields.deployedAt);
+      if ("lastDeployError" in fields) add("last_deploy_error", fields.lastDeployError);
+      if (sets.length === 0) return { status: "noop" };
+      sets.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(tenantId);
+      const sql = `UPDATE tenants SET ${sets.join(", ")} WHERE id = $${i}`;
+      await client.query(sql, values);
+      await client.query(
+        `INSERT INTO audit_logs (tenant_id, action, details)
+         VALUES ($1, $2, $3)`,
+        [
+          tenantId,
+          "TENANT_DEPLOYMENT_UPDATED",
+          JSON.stringify({
+            status: fields.deploymentStatus,
+            url: fields.vercelDeploymentUrl,
+            project: fields.vercelProjectName
+          })
+        ]
+      );
+      return { status: "success" };
+    } finally {
+      client.release();
+    }
+  }
+  /**
+   * Get tenant by ID, ignoring status (so deploy routes can find
+   * `suspended` and `deleted` tenants too).
+   */
+  async getTenantByIdAnyStatus(tenantId) {
+    const result = await masterPool.query(
+      "SELECT * FROM tenants WHERE id = $1",
+      [tenantId]
+    );
+    return result.rows[0] || null;
   }
   /**
    * Delete tenant
@@ -627,6 +700,211 @@ var AssetManager = class {
   }
 };
 var asset_manager_default = new AssetManager();
+
+// src/server/vercel-deploy.ts
+var VERCEL_API_BASE = "https://api.vercel.com";
+var VercelDeployService = class {
+  constructor() {
+    this.token = process.env.VERCEL_API_TOKEN;
+    this.teamId = process.env.VERCEL_TEAM_ID || void 0;
+    this.defaultRepo = process.env.VERCEL_STOREFRONT_REPO_URL || process.env.VERCEL_DEFAULT_REPO || "kn8trix/AI-Cyber-Monkey-SME-DASH";
+    this.defaultBranch = process.env.VERCEL_DEFAULT_BRANCH || "main";
+    this.defaultBuildCommand = process.env.VERCEL_BUILD_COMMAND || "npm run vercel-build";
+    this.defaultOutputDir = process.env.VERCEL_OUTPUT_DIR || "dist";
+    this.enabled = Boolean(this.token);
+    if (!this.enabled) {
+      console.warn(
+        "[vercel-deploy] VERCEL_API_TOKEN is not set \u2014 tenant deploys will be rejected with 503."
+      );
+    }
+  }
+  /** Quick readiness check used by the /deploy routes. */
+  isConfigured() {
+    return this.enabled;
+  }
+  /**
+   * Build the Authorization header + teamId query string for a Vercel call.
+   */
+  authHeaders() {
+    if (!this.token) {
+      throw new Error("VERCEL_API_TOKEN is not configured");
+    }
+    return {
+      Authorization: `Bearer ${this.token}`,
+      "Content-Type": "application/json",
+      "User-Agent": "sme-ai-dashboard/1.0 (+vercel-deploy)"
+    };
+  }
+  teamQuery() {
+    return this.teamId ? `?teamId=${encodeURIComponent(this.teamId)}` : "";
+  }
+  /**
+   * Create a new Vercel project tied to the GitHub repo + branch.
+   * Returns the project { id, name }.
+   *
+   * NOTE: Vercel's API requires the repo to already be in the user's
+   * Vercel-GitHub integration. If it isn't, this returns a 403 with a
+   * "git_provider_not_configured" error which we surface to the UI.
+   */
+  async createProject(input) {
+    const body = {
+      name: input.name,
+      framework: "vite",
+      gitSource: {
+        type: "github",
+        repo: input.repo,
+        ref: input.branch || this.defaultBranch
+      },
+      buildCommand: input.buildCommand || this.defaultBuildCommand,
+      installCommand: input.installCommand || "npm install",
+      outputDirectory: input.outputDirectory || this.defaultOutputDir,
+      rootDirectory: ".",
+      // Make sure the production URL includes the tenant slug
+      productionDeploymentAlias: [`sme-${input.slug}.vercel.app`]
+    };
+    const res = await fetch(`${VERCEL_API_BASE}/v10/projects${this.teamQuery()}`, {
+      method: "POST",
+      headers: this.authHeaders(),
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(
+        `Vercel createProject failed: ${res.status} ${res.statusText} \u2014 ${text}`
+      );
+    }
+    const data = await res.json();
+    return { id: data.id, name: data.name };
+  }
+  /**
+   * Trigger a fresh production deployment on an existing project by
+   * re-using the configured Git source. This is the cheapest way to
+   * "rebuild" a storefront after a config change.
+   */
+  async deployProject(input) {
+    const body = {
+      name: input.projectId,
+      ref: input.branch || this.defaultBranch,
+      target: "production",
+      gitSource: {
+        type: "github",
+        ref: input.branch || this.defaultBranch,
+        repoId: input.repo
+      }
+    };
+    const res = await fetch(
+      `${VERCEL_API_BASE}/v10/projects/${encodeURIComponent(input.projectId)}/deploy-with-git${this.teamQuery()}`,
+      {
+        method: "POST",
+        headers: this.authHeaders(),
+        body: JSON.stringify(body)
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(
+        `Vercel deployProject failed: ${res.status} ${res.statusText} \u2014 ${text}`
+      );
+    }
+    const data = await res.json();
+    return {
+      id: data.id,
+      url: data.url ? `https://${data.url}` : data.alias?.[0] ? `https://${data.alias[0]}` : "",
+      readyState: data.readyState || "QUEUED",
+      createdAt: data.createdAt || Date.now()
+    };
+  }
+  /**
+   * Poll the live status of a deployment. Used by the dashboard's
+   * "Refresh status" button and the build-completion webhook path.
+   */
+  async getDeployment(deploymentId) {
+    const res = await fetch(
+      `${VERCEL_API_BASE}/v13/deployments/${encodeURIComponent(deploymentId)}${this.teamQuery()}`,
+      { method: "GET", headers: this.authHeaders() }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(
+        `Vercel getDeployment failed: ${res.status} ${res.statusText} \u2014 ${text}`
+      );
+    }
+    const data = await res.json();
+    return {
+      id: data.id,
+      url: data.url ? `https://${data.url}` : data.alias?.[0] ? `https://${data.alias[0]}` : "",
+      readyState: data.readyState,
+      createdAt: data.createdAt,
+      errorMessage: data.errorMessage
+    };
+  }
+  /**
+   * Tear down a Vercel project (and all its deployments + domains).
+   * Idempotent — 404s are swallowed because the user may have already
+   * nuked it from the Vercel dashboard.
+   */
+  async deleteProject(projectId) {
+    const res = await fetch(
+      `${VERCEL_API_BASE}/v9/projects/${encodeURIComponent(projectId)}${this.teamQuery()}`,
+      { method: "DELETE", headers: this.authHeaders() }
+    );
+    if (!res.ok && res.status !== 404) {
+      const text = await res.text();
+      throw new Error(
+        `Vercel deleteProject failed: ${res.status} ${res.statusText} \u2014 ${text}`
+      );
+    }
+  }
+  /**
+   * Upsert a small set of plain env vars on the production target.
+   * We always pin the tenant ID + API base so the deployed SPA can
+   * self-identify at runtime.
+   */
+  async setProductionEnv(projectId, envVars) {
+    for (const env of envVars) {
+      const url = `${VERCEL_API_BASE}/v10/projects/${encodeURIComponent(projectId)}/env${this.teamQuery()}`;
+      const createRes = await fetch(url, {
+        method: "POST",
+        headers: this.authHeaders(),
+        body: JSON.stringify(env)
+      });
+      if (createRes.status === 409 || createRes.status === 400) {
+        const patchRes = await fetch(
+          `${url}/${encodeURIComponent(env.key)}${this.teamQuery()}`,
+          {
+            method: "PATCH",
+            headers: this.authHeaders(),
+            body: JSON.stringify({ value: env.value, target: env.target })
+          }
+        );
+        if (!patchRes.ok) {
+          const text = await patchRes.text();
+          throw new Error(
+            `Vercel setEnv (patch ${env.key}) failed: ${patchRes.status} \u2014 ${text}`
+          );
+        }
+      } else if (!createRes.ok) {
+        const text = await createRes.text();
+        throw new Error(
+          `Vercel setEnv (create ${env.key}) failed: ${createRes.status} \u2014 ${text}`
+        );
+      }
+    }
+  }
+  /**
+   * Derive a Vercel-safe project name from a tenant UUID + slug. Must
+   * be lowercase, alphanumeric + dashes, <= 50 chars.
+   */
+  static projectName(slug, tenantId) {
+    const safeSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
+    const tail = tenantId.replace(/-/g, "").slice(0, 8);
+    return `sme-${safeSlug || "store"}-${tail}`.slice(0, 50);
+  }
+  getDefaultRepo() {
+    return this.defaultRepo;
+  }
+};
+var vercel_deploy_default = new VercelDeployService();
 
 // src/server/multi-tenant-routes.ts
 var router = (0, import_express.Router)();
@@ -940,6 +1218,178 @@ router.put(
     }
   }
 );
+function deploymentSummary(tenant) {
+  return {
+    tenantId: tenant.id,
+    deploymentStatus: tenant.deployment_status || "not_deployed",
+    vercelProjectId: tenant.vercel_project_id || null,
+    vercelProjectName: tenant.vercel_project_name || null,
+    vercelDeploymentId: tenant.vercel_deployment_id || null,
+    vercelDeploymentUrl: tenant.vercel_deployment_url || null,
+    deployedAt: tenant.deployed_at || null,
+    lastDeployError: tenant.last_deploy_error || null
+  };
+}
+function dashboardPublicBaseUrl(req) {
+  const explicit = process.env.DASHBOARD_PUBLIC_URL;
+  if (explicit) return explicit.replace(/\/$/, "");
+  const vercelHost = req.get("x-forwarded-host") || req.get("host") || process.env.VERCEL_PROJECT_PRODUCTION_URL || "localhost:3000";
+  const proto = req.get("x-forwarded-proto") || (vercelHost.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${vercelHost}`;
+}
+router.post("/admin/deploy/:tenantId", async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    if (!vercel_deploy_default.isConfigured()) {
+      return res.status(503).json({
+        error: "Vercel not configured",
+        message: "Set VERCEL_API_TOKEN (and optionally VERCEL_TEAM_ID) on the dashboard's Vercel project, then redeploy."
+      });
+    }
+    const tenant = await provisioning_default.getTenantByIdAnyStatus(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+    if (tenant.status === "deleted") {
+      return res.status(410).json({ error: "Tenant has been deleted" });
+    }
+    const repo = vercel_deploy_default.getDefaultRepo();
+    const slug = tenant.domain.split(".")[0] || tenant.name || "store";
+    let projectId = tenant.vercel_project_id;
+    let projectName = tenant.vercel_project_name;
+    if (!projectId) {
+      const project = await vercel_deploy_default.createProject({
+        name: VercelDeployService.projectName(slug, tenant.id),
+        slug,
+        repo,
+        branch: "main"
+      });
+      projectId = project.id;
+      projectName = project.name;
+      const apiBase = dashboardPublicBaseUrl(req);
+      await vercel_deploy_default.setProductionEnv(projectId, [
+        {
+          key: "VITE_TENANT_ID",
+          value: tenant.id,
+          target: ["production", "preview"],
+          type: "plain"
+        },
+        {
+          key: "VITE_API_BASE",
+          value: apiBase,
+          target: ["production", "preview"],
+          type: "plain"
+        },
+        {
+          key: "VITE_STORE_DOMAIN",
+          value: tenant.domain,
+          target: ["production", "preview"],
+          type: "plain"
+        }
+      ]);
+      await provisioning_default.updateTenantDeployment(tenant.id, {
+        vercelProjectId: projectId,
+        vercelProjectName: projectName,
+        deploymentStatus: "provisioned",
+        lastDeployError: null
+      });
+    }
+    const deployment = await vercel_deploy_default.deployProject({
+      projectId,
+      repo,
+      branch: "main"
+    });
+    await provisioning_default.updateTenantDeployment(tenant.id, {
+      vercelDeploymentId: deployment.id,
+      vercelDeploymentUrl: deployment.url,
+      deploymentStatus: deployment.readyState === "READY" ? "ready" : deployment.readyState === "ERROR" ? "failed" : "building",
+      deployedAt: /* @__PURE__ */ new Date(),
+      lastDeployError: null
+    });
+    res.status(202).json({
+      status: "accepted",
+      ...deploymentSummary({
+        ...tenant,
+        vercel_project_id: projectId,
+        vercel_project_name: projectName,
+        vercel_deployment_id: deployment.id,
+        vercel_deployment_url: deployment.url,
+        deployment_status: deployment.readyState === "READY" ? "ready" : deployment.readyState === "ERROR" ? "failed" : "building",
+        deployed_at: /* @__PURE__ */ new Date()
+      })
+    });
+  } catch (error) {
+    console.error("Deploy tenant error:", error);
+    try {
+      const { tenantId } = req.params;
+      await provisioning_default.updateTenantDeployment(tenantId, {
+        deploymentStatus: "failed",
+        lastDeployError: String(error?.message || error).slice(0, 1e3)
+      });
+    } catch {
+    }
+    res.status(500).json({
+      error: "Deploy failed",
+      message: String(error?.message || error)
+    });
+  }
+});
+router.get("/admin/deploy/:tenantId", async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const tenant = await provisioning_default.getTenantByIdAnyStatus(tenantId);
+    if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+    if (tenant.vercel_deployment_id && tenant.deployment_status && ["provisioned", "building"].includes(tenant.deployment_status)) {
+      try {
+        const live = await vercel_deploy_default.getDeployment(tenant.vercel_deployment_id);
+        const nextStatus = live.readyState === "READY" ? "ready" : live.readyState === "ERROR" ? "failed" : live.readyState === "CANCELED" ? "failed" : "building";
+        const publicUrl = live.readyState === "READY" && live.url ? live.url : tenant.vercel_deployment_url || live.url || null;
+        if (nextStatus !== tenant.deployment_status || publicUrl !== tenant.vercel_deployment_url) {
+          await provisioning_default.updateTenantDeployment(tenant.id, {
+            deploymentStatus: nextStatus,
+            vercelDeploymentUrl: publicUrl,
+            deployedAt: nextStatus === "ready" ? new Date(tenant.deployed_at || Date.now()) : void 0,
+            lastDeployError: nextStatus === "failed" ? live.errorMessage || "Build failed" : null
+          });
+        }
+      } catch (pollErr) {
+        console.warn("Deployment status poll failed:", pollErr?.message || pollErr);
+      }
+    }
+    const refreshed = await provisioning_default.getTenantByIdAnyStatus(tenantId) || tenant;
+    res.json(deploymentSummary(refreshed));
+  } catch (error) {
+    console.error("Get deploy status error:", error);
+    res.status(500).json({ error: error.message || "Internal error" });
+  }
+});
+router.delete("/admin/deploy/:tenantId", async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const tenant = await provisioning_default.getTenantByIdAnyStatus(tenantId);
+    if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+    if (tenant.vercel_project_id) {
+      try {
+        await vercel_deploy_default.deleteProject(tenant.vercel_project_id);
+      } catch (delErr) {
+        console.warn("Vercel deleteProject failed:", delErr?.message || delErr);
+      }
+    }
+    await provisioning_default.updateTenantDeployment(tenant.id, {
+      vercelProjectId: null,
+      vercelProjectName: null,
+      vercelDeploymentId: null,
+      vercelDeploymentUrl: null,
+      deploymentStatus: "not_deployed",
+      deployedAt: null,
+      lastDeployError: null
+    });
+    res.json({ status: "torn_down" });
+  } catch (error) {
+    console.error("Teardown deploy error:", error);
+    res.status(500).json({ error: error.message || "Internal error" });
+  }
+});
 var multi_tenant_routes_default = router;
 
 // server.ts

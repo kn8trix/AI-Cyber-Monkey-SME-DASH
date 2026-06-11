@@ -74,6 +74,22 @@ export async function initializeMasterSchema() {
       );
     `);
 
+    // -------- Forward-only migrations (idempotent) --------
+    // Add Vercel deployment columns for the per-tenant store-deploy
+    // feature. Each ALTER is a no-op on fresh installs because the
+    // columns don't exist in the CREATE TABLE above — Postgres 9.6+
+    // supports `ADD COLUMN IF NOT EXISTS`.
+    await client.query(`
+      ALTER TABLE tenants
+        ADD COLUMN IF NOT EXISTS vercel_project_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS vercel_project_name VARCHAR,
+        ADD COLUMN IF NOT EXISTS vercel_deployment_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS vercel_deployment_url VARCHAR,
+        ADD COLUMN IF NOT EXISTS deployment_status VARCHAR DEFAULT 'not_deployed',
+        ADD COLUMN IF NOT EXISTS deployed_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS last_deploy_error TEXT;
+    `);
+
     console.log('✓ Master schema initialized');
   } finally {
     client.release();
