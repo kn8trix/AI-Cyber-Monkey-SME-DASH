@@ -3,12 +3,6 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": {
-    "api/index.cjs": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.cjs" },
     { "source": "/store/(.*)", "destination": "/api/index.cjs" },
