@@ -10,6 +10,7 @@ import StorefrontInsights from './StorefrontInsights';
 import SmeWebsiteCustomizer from './SmeWebsiteCustomizer';
 import SmeProfileManager from './SmeProfileManager';
 import GoogleSheetsDashboard from './GoogleSheetsDashboard';
+import InventoryIntelligence from './InventoryIntelligence';
 import { StorefrontProfile, StorefrontProduct, withNormalizedTargetSites } from '../types';
 import { useT, useLanguage, greetingKeyForHour, formatSublineDate } from '../i18n/LanguageContext';
 
@@ -23,9 +24,9 @@ interface RefactoredDashboardProps {
   isMenuOpen: boolean;
   accountSettings: any;
   smeLoggedIn: boolean;
-  activeTab: "overview" | "catalog" | "deployer" | "insights" | "customizer" | "profiles" | "sheets";
+  activeTab: "overview" | "catalog" | "deployer" | "insights" | "customizer" | "profiles" | "sheets" | "inventory";
 
-  setActiveTab: (tab: "overview" | "catalog" | "deployer" | "insights" | "customizer" | "profiles" | "sheets") => void;
+  setActiveTab: (tab: "overview" | "catalog" | "deployer" | "insights" | "customizer" | "profiles" | "sheets" | "inventory") => void;
   onSwitchProfile: (id: string) => void;
   onUpdateProfiles: (updated: StorefrontProfile[]) => void;
   onUpdateProducts: (newProducts: StorefrontProduct[] | ((current: StorefrontProduct[]) => StorefrontProduct[])) => void;
@@ -366,7 +367,8 @@ export default function RefactoredDashboard({
     { id: 'insights', label: t('tabs.insights') },
     { id: 'customizer', label: t('tabs.customizer') },
     { id: 'profiles', label: t('tabs.profiles') },
-    { id: 'sheets', label: t('tabs.sheets') }
+    { id: 'sheets', label: t('tabs.sheets') },
+    { id: 'inventory', label: t('tabs.inventory') }
   ];
 
   return (
@@ -500,6 +502,14 @@ export default function RefactoredDashboard({
               onAddLog={onAddLog}
             />
           </div>
+        )}
+
+        {activeTab === 'inventory' && (
+          <InventoryIntelligence
+            tenantId={activeProfileId}
+            tenantName={storefrontProfiles.find((p) => p.id === activeProfileId)?.name}
+            onActivatePricingTab={() => setActiveTab('catalog')}
+          />
         )}
       </main>
 

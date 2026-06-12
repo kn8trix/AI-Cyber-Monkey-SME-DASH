@@ -159,7 +159,7 @@ export default function App() {
   const activeProfile = storefrontProfiles.find(p => p.id === activeProfileId) || storefrontProfiles[0] || INITIAL_STOREFRONT_PROFILES[0];
 
   // Tab navigation states
-  const [activeTab, setActiveTab] = useState<"overview" | "catalog" | "deployer" | "insights" | "customizer" | "profiles" | "sheets">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "catalog" | "deployer" | "insights" | "customizer" | "profiles" | "sheets" | "inventory">("overview");
   const [autopilotEnabled, setAutopilotEnabled] = useState(true);
 
   // Set products globally (shares catalog across all websites)

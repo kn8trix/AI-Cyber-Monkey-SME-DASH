@@ -4,6 +4,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import multiTenantRoutes from "./src/server/multi-tenant-routes";
 import { initializeMasterSchema, masterPool } from "./src/server/db";
+import { runForecast, persistForecast } from "./src/server/forecasting";
+import { runPricing, persistPricing } from "./src/server/pricing-engine";
+import {
+  runRecommendations,
+  persistRecommendations,
+  fetchInbox,
+  resolveRecommendation,
+} from "./src/server/recommendations";
 
 dotenv.config();
 
@@ -276,6 +284,233 @@ app.get("/api/demo/activity", async (_req, res) => {
   }
 });
 
+// ==========================================
+// 0. DEMAND FORECAST + INVENTORY ENGINE
+// ==========================================
+// Real Holt-Winters forecaster — no LLM. Reads orders + products, writes
+// public.demand_forecasts. Drives the InventoryIntelligence tab.
+app.post("/api/forecast/run", async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [], note: "DATABASE_URL not set" });
+  }
+  try {
+    const lookbackDays = Math.min(180, Math.max(7, Number(req.body?.lookbackDays) || 90));
+    const leadTimeDays = Math.min(30, Math.max(1, Number(req.body?.leadTimeDays) || 7));
+
+    const rows = await runForecast(masterPool, { lookbackDays, leadTimeDays });
+
+    // Best-effort persist; the read API falls back to in-memory if persist fails.
+    try {
+      await persistForecast(masterPool, rows);
+    } catch (persistErr: any) {
+      console.warn("[forecast] persist failed, returning rows anyway:", persistErr?.message);
+    }
+
+    return res.json({
+      ok: true,
+      source: "supabase",
+      model: "holt_winters",
+      lookback_days: lookbackDays,
+      lead_time_days: leadTimeDays,
+      generated_at: new Date().toISOString(),
+      row_count: rows.length,
+      rows,
+    });
+  } catch (error: any) {
+    console.error("[forecast] run failed:", error);
+    return res.status(500).json({
+      ok: false,
+      source: "error",
+      error: error?.message || "Forecast failed",
+    });
+  }
+});
+
+app.get("/api/forecast/latest", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [] });
+  }
+  try {
+    // Read the most recent forecast row per product directly from the
+    // persisted table. Useful for first paint so we don't have to re-run
+    // the model on every page load.
+    const result = await masterPool.query(
+      `SELECT DISTINCT ON (f.product_id)
+              f.product_id, f.tenant_id, f.horizon_days, f.predicted_units,
+              f.lower_bound, f.upper_bound, f.model, f.generated_at,
+              p.sku, p.name, p.stock_count, p.price, p.buying_price
+         FROM public.demand_forecasts f
+         JOIN public.products p ON p.id = f.product_id
+        WHERE f.horizon_days = 14
+        ORDER BY f.product_id, f.generated_at DESC`
+    );
+    return res.json({
+      ok: true,
+      source: "supabase",
+      rows: result.rows,
+    });
+  } catch (error: any) {
+    return res.json({
+      ok: true,
+      source: "fallback",
+      rows: [],
+      note: error?.message,
+    });
+  }
+});
+
+// ==========================================
+// 0B. DYNAMIC PRICING ENGINE
+// ==========================================
+// Deterministic cost-plus + market-anchor optimizer. The Gemini call below
+// ("/api/pricing-analyzer") is the AI Strategist *commentary* layer; the
+// math here is the source of truth.
+app.post("/api/pricing/run", async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [] });
+  }
+  try {
+    const targetMargin = Number(req.body?.targetMargin) || 0.40;
+
+    // Run the latest forecast first so the pricing engine can use the
+    // stockout-urgency signal. Forecast is fast and idempotent.
+    const forecasts = await runForecast(masterPool);
+    const rows = await runPricing(masterPool, forecasts, { targetMargin });
+
+    try {
+      await persistPricing(masterPool, rows);
+    } catch (persistErr: any) {
+      console.warn("[pricing] persist failed, returning rows anyway:", persistErr?.message);
+    }
+
+    return res.json({
+      ok: true,
+      source: "supabase",
+      model: "cost_plus_market",
+      target_margin: targetMargin,
+      generated_at: new Date().toISOString(),
+      row_count: rows.length,
+      rows,
+    });
+  } catch (error: any) {
+    console.error("[pricing] run failed:", error);
+    return res.status(500).json({
+      ok: false,
+      source: "error",
+      error: error?.message || "Pricing optimization failed",
+    });
+  }
+});
+
+app.get("/api/pricing/latest", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [] });
+  }
+  try {
+    const result = await masterPool.query(
+      `SELECT DISTINCT ON (s.product_id)
+              s.product_id, s.tenant_id, s.competitor_avg,
+              s.recommended_price, s.promotional_price,
+              s.elasticity, s.market_positioning, s.created_at,
+              p.sku, p.name, p.price, p.buying_price, p.stock_count
+         FROM public.pricing_snapshots s
+         JOIN public.products p ON p.id = s.product_id
+        ORDER BY s.product_id, s.created_at DESC`
+    );
+    return res.json({ ok: true, source: "supabase", rows: result.rows });
+  } catch (error: any) {
+    return res.json({ ok: true, source: "fallback", rows: [], note: error?.message });
+  }
+});
+
+// ==========================================
+// 0b. ACTION INBOX — recommendations engine
+// ==========================================
+// Turns the latest forecast + pricing rows into prioritized, typed actions
+// the merchant can Accept or Dismiss. Closes the AI loop: model proposes,
+// merchant ratifies, system logs the decision in audit_events.
+app.post("/api/recommendations/run", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [], note: "DATABASE_URL not set" });
+  }
+  try {
+    // Re-run forecaster + pricing first so the inbox is fresh. These are
+    // idempotent and fast (~hundreds of ms on the demo dataset).
+    const forecasts = await runForecast(masterPool);
+    const pricings  = await runPricing(masterPool, forecasts);
+    const actions   = await runRecommendations(masterPool, forecasts, pricings);
+
+    let persisted: typeof actions = actions;
+    try {
+      persisted = await persistRecommendations(masterPool, actions);
+    } catch (persistErr: any) {
+      console.warn("[recommendations] persist failed, returning in-memory rows:", persistErr?.message);
+    }
+
+    return res.json({
+      ok: true,
+      source: "supabase",
+      model: "joint_forecast_pricing",
+      generated_at: new Date().toISOString(),
+      row_count: persisted.length,
+      rows: persisted,
+    });
+  } catch (error: any) {
+    console.error("[recommendations] run failed:", error);
+    return res.status(500).json({
+      ok: false,
+      source: "error",
+      error: error?.message || "Recommendations run failed",
+    });
+  }
+});
+
+app.get("/api/recommendations/latest", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [] });
+  }
+  try {
+    const rows = await fetchInbox(masterPool, 50);
+    return res.json({ ok: true, source: "supabase", row_count: rows.length, rows });
+  } catch (error: any) {
+    return res.json({ ok: true, source: "fallback", rows: [], note: error?.message });
+  }
+});
+
+app.post("/api/recommendations/:id/accept", async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({ ok: false, source: "fallback", error: "DATABASE_URL not set" });
+  }
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ ok: false, error: "Missing id" });
+    const actor = (req.body?.actor as string) || "merchant";
+    const row = await resolveRecommendation(masterPool, id, "accepted", actor);
+    if (!row) return res.status(404).json({ ok: false, error: "Recommendation not found or not open" });
+    return res.json({ ok: true, source: "supabase", row });
+  } catch (error: any) {
+    console.error("[recommendations] accept failed:", error);
+    return res.status(500).json({ ok: false, error: error?.message || "Accept failed" });
+  }
+});
+
+app.post("/api/recommendations/:id/dismiss", async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({ ok: false, source: "fallback", error: "DATABASE_URL not set" });
+  }
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ ok: false, error: "Missing id" });
+    const actor = (req.body?.actor as string) || "merchant";
+    const row = await resolveRecommendation(masterPool, id, "dismissed", actor);
+    if (!row) return res.status(404).json({ ok: false, error: "Recommendation not found or not open" });
+    return res.json({ ok: true, source: "supabase", row });
+  } catch (error: any) {
+    console.error("[recommendations] dismiss failed:", error);
+    return res.status(500).json({ ok: false, error: error?.message || "Dismiss failed" });
+  }
+});
+
 // Initialize GoogleGenAI SDK safely
 // We lazy-load the client when requested to prevent immediate crashes if GEMINI_API_KEY is not immediately provided
 let genAI: GoogleGenAI | null = null;
@@ -536,46 +771,116 @@ app.post("/api/generate-social", async (req, res) => {
 // ==========================================
 // 3. PRICING COMPETITION & REPORT ENDPOINT
 // ==========================================
+// This route is the *AI Strategist* layer: it first runs the deterministic
+// pricing engine, then asks Gemini to write a plain-language commentary
+// explaining the recommendation. The math is the source of truth — the LLM
+// is the "narrator", not the "brain".
 app.post("/api/pricing-competition", async (req, res) => {
   try {
-    const { productName, currentPrice, competitorPrices, uniqueSells } = req.body;
-    if (!productName || !currentPrice) {
+    const { productName, currentPrice, competitorPrices, uniqueSells, language } = req.body;
+    if (!productName || currentPrice == null) {
       return res.status(400).json({ error: "Product name and current price are required." });
     }
 
-    const ai = getGeminiClient();
+    // ---- 1. Deterministic anchor ---------------------------------------
+    // Treat the competitor list as a market sample. If the caller didn't
+    // supply any, fall back to "we're 5% under an unseen market".
+    const competitorNums: number[] = Array.isArray(competitorPrices)
+      ? competitorPrices.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0)
+      : [];
+    const competitorAverage =
+      competitorNums.length > 0
+        ? competitorNums.reduce((a, b) => a + b, 0) / competitorNums.length
+        : Number(currentPrice) * 0.95;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_ID,
-      contents: `You are a strategic pricing consultant for small enterprises. Review the pricing structure of:
-      Product: ${productName}
-      Our Price: $${currentPrice}
-      Competitors: ${JSON.stringify(competitorPrices || [])}
-      Our Unique Value: ${uniqueSells || "Not specified."}
-      
-      Analyze competitor pricing, evaluate overall competitor average, assess if our product is Overpriced, Underpriced, or Fairly Priced, and suggest optimal adjustments. Explain the strategic rationale.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            competitorAverage: { type: Type.NUMBER, description: "Calculated average price of competition" },
-            marketPositioning: { type: Type.STRING, description: "Position classification: 'Premium High-Value', 'Value Leader', or 'Market Average'" },
-            analysisSummary: { type: Type.STRING, description: "A comprehensive description explaining of competitive strengths & weaknesses (2 paragraphs)" },
-            recommendedPrice: { type: Type.NUMBER, description: "Suggested normal listing price for optimal sales velocity" },
-            promotionalPrice: { type: Type.NUMBER, description: "Recommended discount price tag for quick sales or weekend flash promotions" },
-            tacticalAction: { type: Type.STRING, description: "A highly actionable strategic move (e.g. 'Bundle with item B', 'Highlight materials in banner')" }
+    const priceIndex = (Number(currentPrice) - competitorAverage) / Math.max(1, competitorAverage);
+    const marketPositioning: "premium" | "mid" | "value" =
+      priceIndex > 0.05 ? "premium" : priceIndex < -0.05 ? "value" : "mid";
+
+    // Target a 40% gross margin, nudged toward the market.
+    const cost = Math.max(1, Number(currentPrice) * 0.6);
+    const costPlus = cost * 1.4;
+    const marketAnchor = competitorAverage * (priceIndex > 0.05 ? 1.03 : 0.97);
+    const recommendedPrice = Number(((0.55 * costPlus + 0.45 * marketAnchor)).toFixed(2));
+    const promotionalPrice = Number((recommendedPrice * 0.93).toFixed(2));
+
+    const tacticalAction =
+      marketPositioning === "premium"
+        ? "Lean into the quality story — keep price, refresh hero copy and bundle."
+        : marketPositioning === "value"
+          ? "Test a +5% increase; the gap to market has room to close."
+          : "Hold the line. Run a flash promo this weekend to test demand elasticity.";
+
+    // ---- 2. AI Strategist commentary layer ------------------------------
+    // The LLM only writes the narrative. If it fails, we still ship the math.
+    let analysisSummary = "";
+    try {
+      const ai = getGeminiClient();
+      const langInstruction =
+        language === "bn"
+          ? "Respond in Bangla (বাংলা)."
+          : "Respond in English.";
+      const response = await ai.models.generateContent({
+        model: MODEL_ID,
+        contents: `You are an AI Strategist commenting on a deterministic pricing recommendation for a small enterprise.
+${langInstruction}
+
+Product: ${productName}
+Our Price: $${currentPrice}
+Competitor Average: $${competitorAverage.toFixed(2)}
+Market Positioning: ${marketPositioning}
+Deterministic Recommended Price: $${recommendedPrice}
+Deterministic Promotional Price: $${promotionalPrice}
+Deterministic Tactical Action: ${tacticalAction}
+Unique Value: ${uniqueSells || "Not specified."}
+
+Write a 2-paragraph analysis explaining why the deterministic engine reached this recommendation, framed for the SME owner. Do NOT recompute or override the price. Just explain.`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              analysisSummary: { type: Type.STRING },
+            },
+            required: ["analysisSummary"],
           },
-          required: ["competitorAverage", "marketPositioning", "analysisSummary", "recommendedPrice", "promotionalPrice", "tacticalAction"]
-        }
-      }
-    });
+        },
+      });
+      const parsed = JSON.parse(response.text || "{}");
+      analysisSummary = parsed.analysisSummary || "";
+    } catch (aiErr: any) {
+      // AI is a commentary layer. If it fails, fall back to a deterministic
+      // narrative so the UI never breaks.
+      console.warn("[pricing-competition] AI commentary unavailable:", aiErr?.message);
+      analysisSummary =
+        `The deterministic engine placed this product in the "${marketPositioning}" band ` +
+        `based on the gap (${(priceIndex * 100).toFixed(1)}%) to the competitor average. ` +
+        `The recommended price balances a 40% margin floor with a nudge toward the market. ` +
+        `Consider the tactical action above for the next 7 days.`;
+    }
 
-    const parsedData = JSON.parse(response.text || "{}");
-    res.json(parsedData);
+    return res.json({
+      competitorAverage: Number(competitorAverage.toFixed(2)),
+      marketPositioning:
+        marketPositioning === "premium"
+          ? "Premium High-Value"
+          : marketPositioning === "value"
+            ? "Value Leader"
+            : "Market Average",
+      analysisSummary,
+      recommendedPrice,
+      promotionalPrice,
+      tacticalAction,
+      // Extras the frontend can render to make the determinism visible.
+      model: "deterministic_engine_with_ai_commentary",
+      priceIndex: Number(priceIndex.toFixed(3)),
+    });
   } catch (error: any) {
-    console.error("AI Pricing Analyser Error:", error);
-    res.status(500).json({ error: error.message || "Failed analyzing pricing competition" });
+    console.error("[pricing-competition] failed:", error);
+    return res.status(500).json({
+      error: "Pricing analysis failed",
+      details: error?.message || "Unknown error",
+    });
   }
 });
 
