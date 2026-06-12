@@ -18,6 +18,36 @@ dotenv.config();
 const PORT = 3000;
 const IS_VERCEL = process.env.VERCEL === "1" || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
+// ==========================================
+// GLOBAL SAFETY NET (auto-heal)
+// ==========================================
+// In production (especially on Vercel) the server must NEVER die with
+// an opaque FUNCTION_INVOCATION_FAILED. The `pg-pool` driver in
+// particular emits a *delayed* rejection from its internal idle-client
+// reaper after the initial `connect()` fails — that rejection happens
+// long after our DB-init IIFE has already returned, so a `try/catch`
+// around the call site cannot catch it. Without these listeners, Node
+// terminates the process (default `--unhandled-rejections=throw`),
+// which is why the dev server used to log "SME Dashboard server
+// running" and then die one tick later with exit code 1.
+//
+// We log, we mark the process "degraded", and we keep serving. The
+// API surfaces that need Postgres (multi-tenant routes, forecasting
+// history, etc.) will return 503 with a clear message — exactly the
+// behaviour we want for "DB down, UI still alive" demo scenarios.
+process.on("unhandledRejection", (reason) => {
+  console.warn(
+    "[server] Caught unhandledRejection (kept server alive):",
+    reason instanceof Error ? reason.message : reason
+  );
+});
+process.on("uncaughtException", (err) => {
+  console.warn(
+    "[server] Caught uncaughtException (kept server alive):",
+    err?.message || err
+  );
+});
+
 // Canonical product category whitelist. Both the AI prompt and the
 // fallback path must clamp to this set so the frontend never receives
 // an unknown category (which would break CustomerStorefront filters).
@@ -144,6 +174,12 @@ const requireAdmin = (req: express.Request, res: express.Response, next: express
 // Initialize database on startup without blocking the dashboard if Postgres is unavailable.
 // On Vercel the DB call may not have a DATABASE_URL set; the catch below keeps
 // the serverless import path from throwing during cold start.
+//
+// We chain `.catch()` on the returned promise AND wrap the body in
+// try/catch, so a stray rejection from `pg-pool`'s internal pool (e.g.
+// its idle-client reaper rejecting after we've already moved on) can
+// never escape this IIFE. The process-level `unhandledRejection` guard
+// at the top of the file is the belt to this IIFE's braces.
 (async () => {
   if (IS_VERCEL && !process.env.DATABASE_URL) {
     console.log("Vercel: no DATABASE_URL, skipping DB init (local UI mode).");
@@ -155,7 +191,10 @@ const requireAdmin = (req: express.Request, res: express.Response, next: express
   } catch (error) {
     console.warn("Database initialization unavailable, continuing in local UI mode:", error);
   }
-})();
+})().catch((error) => {
+  // Belt to the try/catch braces. If even this fires, log and move on.
+  console.warn("[server] DB init IIFE rejected (caught, kept server alive):", error?.message || error);
+});
 
 // Register multi-tenant routes. We gate the `/api/admin/*` subtree
 // (provisioning, suspend, delete, deploy, etc.) behind the admin
