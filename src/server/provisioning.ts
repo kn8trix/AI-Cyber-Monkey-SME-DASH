@@ -51,15 +51,43 @@ class ProvisioningService {
         };
       }
 
-      // 2. Allocate backend port (3001-3999)
-      const portResult = await client.query(
-        'SELECT backend_port FROM tenants WHERE backend_port IS NOT NULL ORDER BY backend_port DESC LIMIT 1'
-      );
-      const nextPort = (portResult.rows[0]?.backend_port || 3000) + 1;
+      // 2. Allocate backend port (3001-3999).
+      //
+      // The previous implementation used `SELECT MAX(port)+1` outside of
+      // any row lock, so two concurrent provisions could read the same
+      // value and both try to insert it. We now:
+      //   1. Take a transaction-scoped advisory lock so only one provision
+      //      reads/writes the port range at a time.
+      //   2. Pick the lowest free port in the range (defends against
+      //      holes from deleted tenants) instead of "max + 1".
+      //   3. Have a UNIQUE(backend_port) constraint (see db.ts) as a
+      //      last-resort safety net — if the lock ever fails to be held
+      //      (e.g. across two app instances against the same DB), the
+      //      INSERT will throw 23505 and we retry.
+      const ADVISORY_LOCK_PORT_ALLOCATION = 0x534D4550; // 'SMEP' in hex
+      await client.query('SELECT pg_advisory_xact_lock($1)', [
+        ADVISORY_LOCK_PORT_ALLOCATION
+      ]);
 
-      if (nextPort > 3999) {
+      const PORT_MIN = 3001;
+      const PORT_MAX = 3999;
+
+      // Find the lowest port that is not currently used. `generate_series`
+      // + `LEFT JOIN ... WHERE t.id IS NULL` gives us gaps we can reuse.
+      const portResult = await client.query<{ candidate: number }>(
+        `SELECT candidate
+           FROM generate_series($1::int, $2::int) AS candidate
+           LEFT JOIN tenants t ON t.backend_port = candidate
+          WHERE t.id IS NULL
+          ORDER BY candidate
+          LIMIT 1`,
+        [PORT_MIN, PORT_MAX]
+      );
+
+      if (portResult.rows.length === 0) {
         throw new Error('No available backend ports');
       }
+      const nextPort = portResult.rows[0].candidate;
 
       // 3. Generate API key
       const apiKey = crypto.randomBytes(32).toString('hex');
@@ -68,13 +96,24 @@ class ProvisioningService {
       // 4. S3 bucket name (must be globally unique)
       const s3Bucket = `sme-tenant-${tenantId.slice(0, 8)}`;
 
-      // 5. Insert tenant record
+      // 5. Insert tenant record. The UNIQUE(backend_port) constraint
+      // is the second line of defence: if two app instances ever
+      // somehow race past the advisory lock, the loser gets a 23505
+      // unique_violation. We surface that as an explicit retry hint
+      // rather than a generic 500.
       const insertResult = await client.query(
         `INSERT INTO tenants (id, domain, name, owner_email, owner_name, plan, backend_port, s3_bucket, status)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
         [tenantId, request.domain, request.name, request.ownerEmail, request.ownerName, request.plan, nextPort, s3Bucket, 'active']
-      );
+      ).catch((err: any) => {
+        if (err?.code === '23505' && err?.constraint === 'tenants_backend_port_unique') {
+          const e = new Error('Backend port collision, please retry');
+          (e as any).code = 'PORT_COLLISION';
+          throw e;
+        }
+        throw err;
+      });
 
       // 6. Store API key
       await client.query(

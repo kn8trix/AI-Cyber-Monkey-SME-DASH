@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import { useT } from '../i18n/LanguageContext';
 
@@ -62,9 +62,51 @@ const getActivityColor = (type: string) => {
   }
 };
 
-export default function ActivityFeed({ activities = defaultActivities, onViewAll }: ActivityFeedProps) {
+export default function ActivityFeed({ activities: activitiesProp, onViewAll }: ActivityFeedProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [live, setLive] = useState<ActivityItem[] | null>(null);
   const t = useT();
+
+  useEffect(() => {
+    if (activitiesProp) return; // parent override
+    let cancelled = false;
+    fetch('/api/demo/activity')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled || !json || json.source !== 'supabase') return;
+        const rows: ActivityItem[] = (json.activity || []).map((row: any, idx: number) => {
+          const created = row.created_at ? new Date(row.created_at) : new Date();
+          const minutesAgo = Math.max(1, Math.floor((Date.now() - created.getTime()) / 60000));
+          const timestamp =
+            minutesAgo < 60
+              ? `${minutesAgo} min ago`
+              : minutesAgo < 60 * 24
+              ? `${Math.floor(minutesAgo / 60)} hour${Math.floor(minutesAgo / 60) === 1 ? '' : 's'} ago`
+              : `${Math.floor(minutesAgo / 60 / 24)} day(s) ago`;
+          const type = (['deployment', 'order', 'alert', 'update'] as const).includes(row.event_type)
+            ? (row.event_type as ActivityItem['type'])
+            : 'update';
+          return {
+            id: row.id || `row-${idx}`,
+            title: row.title || 'System event',
+            description: row.description || '',
+            timestamp,
+            email: row.actor_email,
+            avatar: (row.actor_email || 'S').charAt(0).toUpperCase(),
+            type,
+          };
+        });
+        if (rows.length) setLive(rows);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activitiesProp]);
+
+  const activities = activitiesProp ?? live ?? defaultActivities;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden h-full">

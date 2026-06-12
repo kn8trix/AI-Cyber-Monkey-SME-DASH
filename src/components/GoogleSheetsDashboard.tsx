@@ -1,23 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
 import { StorefrontProduct } from "../types";
-import { 
-  Plus, 
-  Trash2, 
-  Download, 
-  Upload, 
-  Check, 
-  Search, 
-  FileSpreadsheet, 
-  Coins, 
-  Undo2, 
+import { useT } from "../i18n/LanguageContext";
+import {
+  Plus,
+  Trash2,
+  Download,
+  Upload,
+  Check,
+  Search,
+  FileSpreadsheet,
+  Coins,
   AlertCircle,
   HelpCircle,
-  Copy,
   FolderSync,
   Sparkles,
   Percent,
   TrendingUp,
-  ChevronDown
 } from "lucide-react";
 
 interface GoogleSheetsDashboardProps {
@@ -35,30 +33,41 @@ interface Column {
   width: string;
 }
 
-const COLUMNS: Column[] = [
-  { key: "id", label: "Product ID", letter: "A", type: "readonly", width: "w-28" },
-  { key: "name", label: "Product Name", letter: "B", type: "string", width: "w-64" },
-  { key: "category", label: "Category", letter: "C", type: "select", width: "w-40" },
-  { key: "buyingPrice", label: "Buying Price ($)", letter: "D", type: "number", width: "w-32" },
-  { key: "price", label: "Selling Price ($)", letter: "E", type: "number", width: "w-32" },
-  { key: "margin", label: "Profit Margin (%)", letter: "F", type: "number", width: "w-36" },
-  { key: "profit", label: "Gross Profit ($)", letter: "G", type: "readonly", width: "w-32" },
-  { key: "stockCount", label: "Stock Qty", letter: "H", type: "number", width: "w-24" },
-  { key: "salesCount", label: "Sales Count", letter: "I", type: "number", width: "w-28" },
-  { key: "viewsCount", label: "Views Count", letter: "J", type: "number", width: "w-28" },
-  { key: "desc", label: "Description", letter: "K", type: "string", width: "w-80" },
-];
+const COLUMN_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"];
 
-const CATEGORIES = ["Hardware", "Peripherals", "Acoustics", "Optics", "Systems", "Diagnostics"];
-
-export default function GoogleSheetsDashboard({ 
-  products, 
+export default function GoogleSheetsDashboard({
+  products,
   onUpdateProducts,
   onAddLog
 }: GoogleSheetsDashboardProps) {
+  const t = useT();
   // Local draft spreadsheet products
   const [localProducts, setLocalProducts] = useState<StorefrontProduct[]>(products);
   const [isDraftModified, setIsDraftModified] = useState(false);
+
+  // Columns & categories (localized)
+  const COLUMNS: Column[] = [
+    { key: "id", label: t("sheets.colId"), letter: COLUMN_LETTERS[0], type: "readonly", width: "w-28" },
+    { key: "name", label: t("sheets.colName"), letter: COLUMN_LETTERS[1], type: "string", width: "w-64" },
+    { key: "category", label: t("sheets.colCategory"), letter: COLUMN_LETTERS[2], type: "select", width: "w-40" },
+    { key: "buyingPrice", label: t("sheets.colBuying"), letter: COLUMN_LETTERS[3], type: "number", width: "w-32" },
+    { key: "price", label: t("sheets.colPrice"), letter: COLUMN_LETTERS[4], type: "number", width: "w-32" },
+    { key: "margin", label: t("sheets.colMargin"), letter: COLUMN_LETTERS[5], type: "number", width: "w-36" },
+    { key: "profit", label: t("sheets.colProfit"), letter: COLUMN_LETTERS[6], type: "readonly", width: "w-32" },
+    { key: "stockCount", label: t("sheets.colStock"), letter: COLUMN_LETTERS[7], type: "number", width: "w-24" },
+    { key: "salesCount", label: t("sheets.colSales"), letter: COLUMN_LETTERS[8], type: "number", width: "w-28" },
+    { key: "viewsCount", label: t("sheets.colViews"), letter: COLUMN_LETTERS[9], type: "number", width: "w-28" },
+    { key: "desc", label: t("sheets.colDesc"), letter: COLUMN_LETTERS[10], type: "string", width: "w-80" },
+  ];
+
+  const CATEGORIES = [
+    t("sheets.catHardware"),
+    t("sheets.catPeripherals"),
+    t("sheets.catAcoustics"),
+    t("sheets.catOptics"),
+    t("sheets.catSystems"),
+    t("sheets.catDiagnostics"),
+  ];
 
   // Synchronize local products if live prop changes, provided they have no unsaved draft changes
   useEffect(() => {
@@ -88,7 +97,7 @@ export default function GoogleSheetsDashboard({
     setIsDraftModified(false);
     triggerSyncIndicator();
     onAddLog(`[CATALOG-DEPLOY] ${new Date().toLocaleTimeString()}: Deployed spreadsheet catalog data (${localProducts.length} items) successfully to the live Storefront.`);
-    alert(`Successfully deployed all ${localProducts.length} items to the live Storefront catalog! All changes are now live and interactive for customers.`);
+    alert(t("sheets.deploySuccess", { n: localProducts.length }));
   };
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -141,9 +150,9 @@ export default function GoogleSheetsDashboard({
 
       // Implement field type updates
       if (colKey === "name") {
-        updatedProd.name = valStr || "Untitled Product";
+        updatedProd.name = valStr || t("sheets.fallbackName");
       } else if (colKey === "desc") {
-        updatedProd.desc = valStr || "Product Description";
+        updatedProd.desc = valStr || t("sheets.fallbackDesc");
       } else if (colKey === "category") {
         updatedProd.category = valStr;
       } else if (colKey === "buyingPrice") {
@@ -237,22 +246,31 @@ export default function GoogleSheetsDashboard({
 
   // Handle active cell values displaying beautifully in the upper formula bar
   const getSelectedCellFormulaString = () => {
-    if (!selectedCell) return "Select any cell in the sheet grid to read or edit its raw values...";
+    if (!selectedCell) return t("sheets.formulaBarIdle");
     const prod = localProducts.find(p => p.id === selectedCell.rowId);
     const col = COLUMNS.find(c => c.key === selectedCell.colKey);
     if (!prod || !col) return "";
 
-    const coordinate = `${col.letter}${localProducts.findIndex(p => p.id === selectedCell.rowId) + 1}`;
-    
+    const rowNum = localProducts.findIndex(p => p.id === selectedCell.rowId) + 1;
+    const coordinate = `${col.letter}${rowNum}`;
+
     if (selectedCell.colKey === "margin") {
-      return `${coordinate} = (E${localProducts.findIndex(p => p.id === selectedCell.rowId) + 1} - D${localProducts.findIndex(p => p.id === selectedCell.rowId) + 1}) / E${localProducts.findIndex(p => p.id === selectedCell.rowId) + 1}  [Live calculated margin: ${calculateMargin(prod.price, prod.buyingPrice || 0)}%]`;
+      return t("sheets.formulaBarMargin", {
+        coord: coordinate,
+        row: rowNum,
+        pct: calculateMargin(prod.price, prod.buyingPrice || 0),
+      });
     }
     if (selectedCell.colKey === "profit") {
-      return `${coordinate} = E${localProducts.findIndex(p => p.id === selectedCell.rowId) + 1} - D${localProducts.findIndex(p => p.id === selectedCell.rowId) + 1}  [Live calculated profit: $${calculateProfit(prod.price, prod.buyingPrice || 0).toFixed(2)}]`;
+      return t("sheets.formulaBarProfit", {
+        coord: coordinate,
+        row: rowNum,
+        value: calculateProfit(prod.price, prod.buyingPrice || 0).toFixed(2),
+      });
     }
 
-    const value = prod[selectedCell.colKey as keyof StorefrontProduct] ?? "NULL";
-    return `fx: [Cell Coordinate ${coordinate}] [Column: "${col.label}"] = ${value}`;
+    const value = prod[selectedCell.colKey as keyof StorefrontProduct] ?? t("sheets.formulaBarNull");
+    return t("sheets.formulaBarCoord", { coord: coordinate, label: col.label, value });
   };
 
   // Add standard new row
@@ -262,10 +280,10 @@ export default function GoogleSheetsDashboard({
     const newId = `p_sheet_${Date.now().toString().slice(-4)}`;
     const newRow: StorefrontProduct = {
       id: newId,
-      name: "New Cybernetic Hardware Mod",
+      name: t("sheets.defaultName"),
       price: 299.00,
-      category: "Hardware",
-      desc: "High-spec custom circuit array registered through the interactive Sheets dashboard. Refine descriptions using our AI copywriting assistant.",
+      category: t("sheets.catHardware"),
+      desc: t("sheets.defaultDesc"),
       salesCount: 0,
       viewsCount: 0,
       buyingPrice: 150.00,
@@ -282,7 +300,7 @@ export default function GoogleSheetsDashboard({
   // Delete row target
   const handleDeleteRow = (rowId: string) => {
     if (localProducts.length <= 1) {
-      alert("Spreadsheet safety rule: A minimum of 1 catalog item is required to preserve responsive store styling.");
+      alert(t("sheets.minRowAlert"));
       return;
     }
     triggerSyncIndicator();
@@ -377,7 +395,7 @@ export default function GoogleSheetsDashboard({
     try {
       const lines = csvPasteText.split("\n").map(l => l.trim()).filter(Boolean);
       if (lines.length < 2) {
-        alert("Invalid structure. Minimum CSV input must include headers and at least 1 record row.");
+        alert(t("sheets.invalidCsv"));
         return;
       }
 
@@ -392,12 +410,12 @@ export default function GoogleSheetsDashboard({
         if (values.length < 5) continue; // ignore broken item lines
 
         const id = values[0] || `p_import_${Math.floor(Math.random() * 900) + 105}`;
-        const name = values[1] || "Imported Product Item";
-        const category = values[2] || "Accessories";
+        const name = values[1] || t("sheets.importedName");
+        const category = values[2] || t("sheets.catPeripherals");
         const buyingPrice = parseFloat(values[3]) || 10.00;
         const price = parseFloat(values[4]) || 19.99;
         const stockCount = parseInt(values[5]) || 30;
-        const desc = values[6] || "Imported spreadsheet bulk description.";
+        const desc = values[6] || t("sheets.importedDesc");
 
         // Look for matching product to update or append fresh
         const existingIdx = updatedProductsList.findIndex(p => p.id === id || p.name.toLowerCase() === name.toLowerCase());
@@ -430,14 +448,14 @@ export default function GoogleSheetsDashboard({
       setCsvPasteMode(false);
       onAddLog(`[SHEET-IMPORT-DRAFT] ${new Date().toLocaleTimeString()}: Successfully imported and merged ${importCount} inventory products into draft. Hit Deploy to publish live!`);
     } catch (e) {
-      alert("Error parsing CSV block. Please make sure data coordinates matches: ID, Name, Category, BuyingPrice, SellingPrice, StockCount, Description");
+      alert(t("sheets.csvError"));
     }
   };
 
   // AI-powered categorizer for the entire catalog list
   const handleAiCategorizeAll = async () => {
     if (localProducts.length === 0) {
-      alert("No products in catalog to categorize. Please add or import some products first.");
+      alert(t("sheets.noProductsAlert"));
       return;
     }
     setAiCategorizing(true);
@@ -477,14 +495,14 @@ export default function GoogleSheetsDashboard({
         setIsDraftModified(true);
         triggerSyncIndicator();
         onAddLog(`[AI-CATEGORIZE-SUCCESS] ${new Date().toLocaleTimeString()}: Successfully auto-classified ${updatedCount} product categories inside drafts.`);
-        alert(`Successfully auto-categorized all products in draft worksheet! Updated categories for ${updatedCount} products.`);
+        alert(t("sheets.aiCategorizeSuccess", { n: updatedCount }));
       } else {
         throw new Error("Response is missing categorizations array.");
       }
     } catch (err: any) {
       console.error(err);
       onAddLog(`[AI-CATEGORIZE-FAILED] ${new Date().toLocaleTimeString()}: Categorization failed: ${err.message || err}`);
-      alert("AI Categorization failed: " + (err.message || err));
+      alert(t("sheets.aiCategorizeFailed", { message: err.message || err }));
     } finally {
       setAiCategorizing(false);
     }
@@ -515,13 +533,13 @@ export default function GoogleSheetsDashboard({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-md font-extrabold text-slate-900 tracking-tight">Cyber Monkey Live Spreadsheet Broker</h2>
+              <h2 className="text-md font-extrabold text-slate-900 tracking-tight">{t("sheets.brandTitle")}</h2>
               <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] rounded-full border border-emerald-200 font-extrabold font-mono uppercase">
-                Sheets Sync v3.1
+                {t("sheets.brandBadge")}
               </span>
             </div>
             <p className="text-xs text-slate-500 font-medium">
-              Real-time Google Sheets grid interface. Directly modify wholesale costs, retail pricing, and targeted profit indexes.
+              {t("sheets.brandSubtitle")}
             </p>
           </div>
         </div>
@@ -531,9 +549,11 @@ export default function GoogleSheetsDashboard({
           <div className="p-2 px-3 bg-white rounded-xl border border-slate-200 flex items-center gap-2.5 text-xs font-mono">
             <span className={`w-2 h-2 rounded-full ${syncStatus === 'syncing' ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`}></span>
             <div>
-              <span className="text-[10px] text-slate-400 block leading-tight">Sync Engine</span>
+              <span className="text-[10px] text-slate-400 block leading-tight">{t("sheets.syncEngineLabel")}</span>
               <span className="text-slate-700 font-bold">
-                {syncStatus === 'syncing' ? "Syncing Grid Changes..." : `Cloud Synced ${statusTimer ? `at ${statusTimer}` : 'Live'}`}
+                {syncStatus === 'syncing'
+                  ? t("sheets.syncSyncing")
+                  : (statusTimer ? t("sheets.syncSyncedAt", { time: statusTimer }) : t("sheets.syncSyncedLive"))}
               </span>
             </div>
           </div>
@@ -543,7 +563,7 @@ export default function GoogleSheetsDashboard({
             className="p-2 px-3 hover:bg-slate-100 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-800 transition-colors text-xs font-bold flex items-center gap-1 cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-emerald-600" />
-            Formula Guide
+            {t("sheets.formulaGuide")}
           </button>
         </div>
 
@@ -554,28 +574,28 @@ export default function GoogleSheetsDashboard({
         <div className="bg-emerald-50/50 p-4 border-b border-emerald-200/80 text-xs text-slate-700 leading-relaxed grid grid-cols-1 md:grid-cols-3 gap-4 font-normal">
           <div className="space-y-1 bg-white p-3 rounded-xl border border-emerald-100">
             <span className="font-bold text-emerald-800 block flex items-center gap-1">
-              <Percent className="w-4 h-4" /> Column F [Profit Margin %] Formula
+              <Percent className="w-4 h-4" /> {t("sheets.formulaTitle1")}
             </span>
             <p className="text-slate-500 text-[11px]">
-              Calculated as: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">((Selling - Buying) / Selling) * 100</code>. <br/>
-              <strong>Interactive Override:</strong> If you input a target margin here (e.g., <code className="bg-slate-100 px-1 py-0.5 rounded">60%</code>), Selling Price is automatically reverse-computed as <code className="bg-slate-100 px-1 py-0.5 rounded">Buying / (1 - Margin/100)</code>.
+              {t("sheets.formulaBody1a")} <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">{t("sheets.formulaCode1")}</code>. <br/>
+              <strong>{t("sheets.formulaBody1b")}</strong> {t("sheets.formulaBody1c")} <code className="bg-slate-100 px-1 py-0.5 rounded">{t("sheets.formulaCode1b")}</code>.
             </p>
           </div>
           <div className="space-y-1 bg-white p-3 rounded-xl border border-emerald-100">
             <span className="font-bold text-emerald-800 block flex items-center gap-1">
-              <TrendingUp className="w-4 h-4" /> Column G [Gross Profit $] Formula
+              <TrendingUp className="w-4 h-4" /> {t("sheets.formulaTitle2")}
             </span>
             <p className="text-slate-500 text-[11px]">
-              Calculated as: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">Selling Price - Buying Price</code>. <br/>
-              This yields your net margin per single unit sold. Syncs instantly to calculate storefront checkout totals back at the customer hub.
+              {t("sheets.formulaBody2a")} <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">{t("sheets.formulaCode2")}</code>. <br/>
+              {t("sheets.formulaBody2b")}
             </p>
           </div>
           <div className="space-y-1 bg-white p-3 rounded-xl border border-emerald-100">
             <span className="font-bold text-slate-800 block flex items-center gap-1">
-              <Sparkles className="w-4 h-4 text-amber-500" /> Omni-Sync Logic
+              <Sparkles className="w-4 h-4 text-amber-500" /> {t("sheets.formulaTitle3")}
             </span>
             <p className="text-slate-500 text-[11px]">
-              All row adjustments immediately map live content. Try launching the storefront in a second window and watch prices swap in real-time as you press <strong>Enter</strong> in this sheet.
+              {t("sheets.formulaBody3a")} <strong>Enter</strong> {t("sheets.formulaBody3b")}
             </p>
           </div>
         </div>
@@ -589,17 +609,17 @@ export default function GoogleSheetsDashboard({
           {isDraftModified && (
             <span className="text-[10px] bg-amber-500 text-white font-extrabold px-2.5 py-1.5 rounded-lg border border-amber-600 uppercase tracking-wider animate-pulse flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
-              Drafting Workspace
+              {t("sheets.draftBadge")}
             </span>
           )}
 
           <button
             onClick={handleDeployToStorefront}
             className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-650 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-black flex items-center gap-1.5 active:scale-95 shadow-md hover:shadow-lg transition-all cursor-pointer border border-emerald-600"
-            title="Publish all spreadsheet worksheet edits live to the buyer storefront!"
+            title={t("sheets.deployLiveTip")}
           >
             <FolderSync className="w-4 h-4 text-amber-300" />
-            Deploy to Live Storefront
+            {t("sheets.deployLive")}
           </button>
 
           <button
@@ -607,16 +627,16 @@ export default function GoogleSheetsDashboard({
             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-xs transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            Add Product Row
+            {t("sheets.addRow")}
           </button>
 
           <button
             onClick={handleExportCSV}
             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Download this table as standard spreadsheet compatible CSV"
+            title={t("sheets.exportCsvTip")}
           >
             <Download className="w-4 h-4 text-slate-550" />
-            Export CSV
+            {t("sheets.exportCsv")}
           </button>
 
           <button
@@ -624,17 +644,17 @@ export default function GoogleSheetsDashboard({
             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Upload className="w-4 h-4 text-slate-550" />
-            Bulk Import
+            {t("sheets.bulkImport")}
           </button>
 
           <button
             onClick={handleAiCategorizeAll}
             disabled={aiCategorizing}
             className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg text-xs font-black flex items-center gap-1.5 active:scale-95 shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50"
-            title="Use Gemini AI to analyze item titles and descriptions and assign optimal retail categories"
+            title={t("sheets.aiCategorizeTip")}
           >
             <Sparkles className={`w-4 h-4 ${aiCategorizing ? "animate-spin" : ""}`} />
-            {aiCategorizing ? "AI Categorizing..." : "AI Auto-Categorize Catalog"}
+            {aiCategorizing ? t("sheets.aiCategorizing") : t("sheets.aiCategorize")}
           </button>
         </div>
 
@@ -646,7 +666,7 @@ export default function GoogleSheetsDashboard({
             </span>
             <input
               type="text"
-              placeholder="Search active sheet..."
+              placeholder={t("sheets.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-250 bg-slate-50/50 rounded-lg focus:outline-hidden focus:border-emerald-500 focus:bg-white transition-all font-medium"
@@ -662,34 +682,32 @@ export default function GoogleSheetsDashboard({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-850 flex items-center gap-1.5">
               <FolderSync className="w-4 h-4 text-emerald-600" />
-              Spreadsheet Bulk CSV Import Field
+              {t("sheets.importTitle")}
             </span>
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setCsvPasteText(`Product ID,Product Name,Category,Buying Price ($),Selling Price ($),Stock Qty,Description
-p101,Royal Honey Jar,Food & Beverage,9.50,18.00,45,Rich wild forest natural raw amber honey
-p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks woven with local linen yarns`)}
+                onClick={() => setCsvPasteText(t("sheets.sampleCsv"))}
                 className="text-[10px] text-emerald-700 font-bold underline bg-transparent"
               >
-                Load Sample Template
+                {t("sheets.importLoadSample")}
               </button>
               <span className="text-slate-350 text-xs">|</span>
               <button
                 className="text-[10px] text-slate-500 font-medium bg-transparent"
                 onClick={() => setCsvPasteMode(false)}
               >
-                Cancel
+                {t("sheets.importCancel")}
               </button>
             </div>
           </div>
           <p className="text-[11px] text-slate-500 font-normal leading-relaxed">
-            Copy and paste rows from Microsoft Excel, Apple Numbers, or raw CSV strings. Use columns exactly in this order: <code className="bg-slate-200/80 px-1 rounded text-slate-800">ID, Name, Category, BuyingPrice, SellingPrice, StockCount, Description</code>.
+            {t("sheets.importHelp")} <code className="bg-slate-200/80 px-1 rounded text-slate-800">{t("sheets.importColumnsCode")}</code>.
           </p>
           <textarea
             value={csvPasteText}
             onChange={(e) => setCsvPasteText(e.target.value)}
             rows={5}
-            placeholder='Product ID,Product Name,Category,Buying Price ($),Selling Price ($),Stock Qty,Description&#10;p8,Organic Herbal Teabag,Food & Beverage,8.00,16.50,150,Imported green chamomile blends&#10;p9,Wooden Tea Tray,Home & Living,15.50,38.00,20,Beautiful solid teak tea tray'
+            placeholder={t("sheets.importPlaceholder")}
             className="w-full p-2.5 bg-white border border-slate-250 rounded-xl text-xs font-mono focus:outline-hidden focus:border-emerald-500"
           />
           <div className="flex justify-end gap-2">
@@ -697,7 +715,7 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
               onClick={handleImportCSVData}
               className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
             >
-              <Check className="w-3.5 h-3.5" /> Confirm CSV Bulk Append
+              <Check className="w-3.5 h-3.5" /> {t("sheets.importConfirm")}
             </button>
           </div>
         </div>
@@ -709,40 +727,40 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
         <div className="flex items-center gap-2">
           <span className="font-bold flex items-center gap-1 text-slate-800 text-[11px] uppercase tracking-wider bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
             <Coins className="w-3.5 h-3.5 text-amber-550 shrink-0" />
-            Wholesale Macros
+            {t("sheets.wholesaleTitle")}
           </span>
           <span className="text-slate-350">|</span>
         </div>
 
         {/* Global markup operations */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px]">Adjust All Column values:</span>
+          <span className="text-[11px]">{t("sheets.wholesaleAdjustAll")}</span>
           
           <button
             onClick={() => applyPriceMultiplier(multiplierAmount, "price")}
             className="p-1 px-2.5 bg-white border border-slate-200.5 hover:bg-slate-55 flex items-center gap-1 rounded-md text-slate-700 font-bold transition-all text-[11px] cursor-pointer"
-            title="Multiply all current selling prices by selected % inflation factor"
+            title={t("sheets.wholesaleScalePriceTip")}
           >
-            Scale Selling Prices by +{multiplierAmount}%
+            {t("sheets.wholesaleScalePrice", { pct: multiplierAmount })}
           </button>
 
           <button
             onClick={() => applyPriceMultiplier(multiplierAmount, "buyingPrice")}
             className="p-1 px-2.5 bg-white border border-slate-200.5 hover:bg-slate-55 flex items-center gap-1 rounded-md text-slate-705 font-bold transition-all text-[11px] cursor-pointer"
-            title="Scale all product buying costs instantly (Supplier inventory inflation simulation)"
+            title={t("sheets.wholesaleScaleCogsTip")}
           >
-            Scale Buying Costs by +{multiplierAmount}%
+            {t("sheets.wholesaleScaleCogs", { pct: multiplierAmount })}
           </button>
 
           <div className="flex items-center gap-1 bg-white p-0.5 px-2 rounded-md border border-slate-200">
-            <span className="text-[10px] text-slate-400">Amt:</span>
-            <input 
-              type="number" 
-              value={multiplierAmount} 
+            <span className="text-[10px] text-slate-400">{t("sheets.wholesaleAmtLabel")}</span>
+            <input
+              type="number"
+              value={multiplierAmount}
               onChange={(e) => setMultiplierAmount(parseInt(e.target.value) || 0)}
               className="w-10 bg-transparent text-center text-slate-800 font-bold focus:outline-hidden"
             />
-            <span className="text-[10px] text-slate-400">%</span>
+            <span className="text-[10px] text-slate-400">{t("sheets.wholesalePctLabel")}</span>
           </div>
         </div>
 
@@ -750,26 +768,26 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
 
         {/* Margin shortcuts */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-500">Fixed Profit Margin Lock:</span>
+          <span className="text-[11px] text-slate-500">{t("sheets.wholesaleMarginLabel")}</span>
           <button
             onClick={() => applyUniformMarginPercent(50)}
             className="p-1 px-2.5 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 rounded-md text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
           >
-            Set 50% Margin
+            {t("sheets.wholesaleMargin50", { pct: 50 })}
           </button>
           
           <button
             onClick={() => applyUniformMarginPercent(60)}
             className="p-1 px-2.5 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 rounded-md text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
           >
-            Set 60% Margin
+            {t("sheets.wholesaleMargin60", { pct: 60 })}
           </button>
 
           <button
             onClick={() => applyUniformMarginPercent(70)}
             className="p-1 px-2.5 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 rounded-md text-[11px] font-bold text-slate-700 transition-colors cursor-pointer"
           >
-            Set 70% Margin
+            {t("sheets.wholesaleMargin70", { pct: 70 })}
           </button>
         </div>
 
@@ -778,7 +796,7 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
       {/* 6. FORMULA BAR CONTAINER (fx) */}
       <div className="bg-slate-50/50 p-2.5 px-4 border-b border-orange-100 flex items-center gap-2">
         <span className="font-mono text-xs font-black text-slate-555 select-none bg-slate-200 p-0.5 px-2.5 rounded border border-slate-300">
-          fx
+          {t("sheets.formulaBarLabel")}
         </span>
         <div className="h-5 w-[1px] bg-slate-300"></div>
         <div className="flex-1 bg-white border border-slate-200 px-3 py-1 text-xs font-semibold font-mono text-emerald-800 rounded shadow-inner truncate leading-none flex items-center">
@@ -796,7 +814,7 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
             
             {/* Top row is A, B, C ... labels */}
             <tr className="bg-slate-100 border-b border-slate-200 text-slate-500 select-none text-[11px] font-mono font-medium">
-              <th className="w-14 border-r border-slate-200 py-1 bg-slate-150 align-middle text-center p-0">Row</th>
+              <th className="w-14 border-r border-slate-200 py-1 bg-slate-150 align-middle text-center p-0">{t("sheets.rowLabel")}</th>
               
               {/* Special blank cell for operations columns */}
               {COLUMNS.map((col, cIdx) => (
@@ -810,7 +828,7 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
                 </th>
               ))}
 
-              <th className="w-24 text-center align-middle font-semibold text-slate-500 bg-slate-100 p-0">Action</th>
+              <th className="w-24 text-center align-middle font-semibold text-slate-500 bg-slate-100 p-0">{t("sheets.actionLabel")}</th>
             </tr>
 
           </thead>
@@ -928,10 +946,10 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
                     <button
                       onClick={() => handleDeleteRow(prod.id)}
                       className="p-1 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 rounded-md border border-rose-200 font-bold text-[10px] inline-flex items-center gap-1 transition-all cursor-pointer"
-                      title="Delete this row"
+                      title={t("sheets.deleteTip")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      Delete
+                      {t("sheets.delete")}
                     </button>
                   </td>
 
@@ -948,17 +966,17 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
       {filteredProducts.length === 0 && (
         <div className="p-12 text-center bg-slate-50 border-t border-slate-200">
           <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-          <h4 className="text-sm font-bold text-slate-700">No products match your search query</h4>
-          <p className="text-xs text-slate-400 mt-1">Try refining your filter keyword or click &apos;Add Product Row&apos; to register a fresh one.</p>
+          <h4 className="text-sm font-bold text-slate-700">{t("sheets.emptyTitle")}</h4>
+          <p className="text-xs text-slate-400 mt-1">{t("sheets.emptyBody")}</p>
         </div>
       )}
 
       {/* 8. SHEET FOOTER / STATS BAR */}
       <div className="bg-slate-100 border-t border-slate-200 p-2.5 px-4 text-xs font-mono font-semibold text-slate-500 flex flex-col md:flex-row md:items-center md:justify-between gap-2 select-none">
         <div className="flex items-center gap-4 flex-wrap">
-          <span>Explore Spreadsheet Metrics:</span>
+          <span>{t("sheets.footerExplore")}</span>
           <span className="text-slate-700">
-            Total Average Markup (ROI):{" "}
+            {t("sheets.footerRoi")}{" "}
             <span className="font-extrabold text-emerald-700">
               {Math.round(
                 localProducts.reduce((acc, p) => acc + calculateMargin(p.price, p.buyingPrice || 0), 0) / (localProducts.length || 1)
@@ -967,14 +985,14 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
           </span>
           <span className="text-slate-350">|</span>
           <span className="text-slate-705">
-            Total Inventory Assets:{" "}
+            {t("sheets.footerInventory")}{" "}
             <span className="font-extrabold text-slate-800">
-              {localProducts.reduce((acc, p) => acc + (p.stockCount || 0), 0)} units
+              {localProducts.reduce((acc, p) => acc + (p.stockCount || 0), 0)} {t("sheets.footerUnits")}
             </span>
           </span>
           <span className="text-slate-350">|</span>
           <span className="text-slate-705">
-            Total Asset Cost:{" "}
+            {t("sheets.footerCost")}{" "}
             <span className="font-extrabold text-indigo-700">
               ${localProducts.reduce((acc, p) => acc + ((p.buyingPrice || 0) * (p.stockCount || 0)), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
@@ -982,7 +1000,7 @@ p102,Cotton Lounge Socks,Apparel,4.00,12.50,230,Cozy premium breathable socks wo
         </div>
 
         <div className="text-[10px] text-slate-400">
-          *Double-click cells to modify values. Formula recalculation triggers instantly. Click Export to get CSV backup.
+          {t("sheets.footerTip")}
         </div>
       </div>
 

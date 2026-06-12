@@ -287,8 +287,13 @@ router.delete('/assets/:key',
     try {
       const { key } = req.params;
 
-      // Verify tenant owns this asset
-      if (!key.includes(req.tenantId!)) {
+      // Verify tenant owns this asset. Keys are minted as
+      // `tenants/${tenantId}/...` (see asset-manager.generateS3Key) so
+      // we require a real prefix match — the previous `includes`
+      // check was bypassable by crafting a key that simply contains
+      // the tenantId substring.
+      const expectedPrefix = `tenants/${req.tenantId}/`;
+      if (!key.startsWith(expectedPrefix)) {
         return res.status(403).json({ error: 'Unauthorized' });
       }
 

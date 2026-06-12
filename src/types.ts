@@ -55,7 +55,9 @@ export interface Product {
   name: string;
   price: number;
   image?: string;
-  targetSites: string[];
+  // Optional so legacy fixtures / draft products can omit it.
+  // Use `withNormalizedTargetSites` to guarantee a `string[]` at runtime.
+  targetSites?: string[];
 }
 
 export const normalizeTargetSites = (product: Pick<StorefrontProduct, 'targetSites' | 'targetWebsites'>): string[] => {
@@ -70,6 +72,10 @@ export const normalizeTargetSites = (product: Pick<StorefrontProduct, 'targetSit
 export const withNormalizedTargetSites = <T extends StorefrontProduct>(product: T): T => {
   const targetSites = normalizeTargetSites(product);
   return { ...product, targetSites, targetWebsites: targetSites } as T;
+};
+
+export const ensureTargetSites = <T extends Pick<Product, 'targetSites'>>(product: T): T & { targetSites: string[] } => {
+  return { ...product, targetSites: product.targetSites ?? [] };
 };
 
 export const resolveTenantTheme = (profile: Pick<StorefrontProfile, 'tenantLayout' | 'layoutTheme'>) => {

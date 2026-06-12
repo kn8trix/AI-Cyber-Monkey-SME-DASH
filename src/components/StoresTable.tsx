@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronDown, Edit2, Trash2, Eye, Copy } from 'lucide-react';
 import { useT } from '../i18n/LanguageContext';
 
@@ -59,14 +59,51 @@ const getStatusBadge = (status: string, t: (key: string) => string) => {
 };
 
 export default function StoresTable({
-  stores = defaultStores,
+  stores: storesProp = defaultStores,
   onEdit,
   onDelete,
   onView
 }: StoresTableProps) {
   const [sortBy, setSortBy] = useState<'domain' | 'date' | 'orders'>('date');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [live, setLive] = useState<StoreRecord[] | null>(null);
   const t = useT();
+
+  useEffect(() => {
+    // If a non-default list was passed in, skip the network call.
+    if (storesProp !== defaultStores) return;
+    let cancelled = false;
+    fetch('/api/demo/stores')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled || !json || json.source !== 'supabase') return;
+        const rows: StoreRecord[] = (json.stores || []).map((row: any) => {
+          const created = row.created_at ? new Date(row.created_at) : new Date();
+          const createdDate = created.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          });
+          return {
+            id: row.id,
+            domain: row.domain,
+            createdDate,
+            ordersToday: Number(row.orders_today) || 0,
+            status: (row.status as StoreRecord['status']) || 'pending',
+            storeUrl: `https://${row.domain}`,
+          };
+        });
+        if (rows.length) setLive(rows);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storesProp]);
+
+  const stores = live ?? storesProp;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

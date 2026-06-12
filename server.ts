@@ -3,12 +3,85 @@ import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import multiTenantRoutes from "./src/server/multi-tenant-routes";
-import { initializeMasterSchema } from "./src/server/db";
+import { initializeMasterSchema, masterPool } from "./src/server/db";
+import { runForecast, persistForecast } from "./src/server/forecasting";
+import { runPricing, persistPricing } from "./src/server/pricing-engine";
+import {
+  runRecommendations,
+  persistRecommendations,
+  fetchInbox,
+  resolveRecommendation,
+} from "./src/server/recommendations";
 
 dotenv.config();
 
 const PORT = 3000;
 const IS_VERCEL = process.env.VERCEL === "1" || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+// ==========================================
+// GLOBAL SAFETY NET (auto-heal)
+// ==========================================
+// In production (especially on Vercel) the server must NEVER die with
+// an opaque FUNCTION_INVOCATION_FAILED. The `pg-pool` driver in
+// particular emits a *delayed* rejection from its internal idle-client
+// reaper after the initial `connect()` fails — that rejection happens
+// long after our DB-init IIFE has already returned, so a `try/catch`
+// around the call site cannot catch it. Without these listeners, Node
+// terminates the process (default `--unhandled-rejections=throw`),
+// which is why the dev server used to log "SME Dashboard server
+// running" and then die one tick later with exit code 1.
+//
+// We log, we mark the process "degraded", and we keep serving. The
+// API surfaces that need Postgres (multi-tenant routes, forecasting
+// history, etc.) will return 503 with a clear message — exactly the
+// behaviour we want for "DB down, UI still alive" demo scenarios.
+process.on("unhandledRejection", (reason) => {
+  console.warn(
+    "[server] Caught unhandledRejection (kept server alive):",
+    reason instanceof Error ? reason.message : reason
+  );
+});
+process.on("uncaughtException", (err) => {
+  console.warn(
+    "[server] Caught uncaughtException (kept server alive):",
+    err?.message || err
+  );
+});
+
+// Canonical product category whitelist. Both the AI prompt and the
+// fallback path must clamp to this set so the frontend never receives
+// an unknown category (which would break CustomerStorefront filters).
+const ALLOWED_CATEGORIES = [
+  "Accessories",
+  "Home & Living",
+  "Apparel",
+  "Office",
+  "Food & Beverage",
+  "Garden"
+] as const;
+const DEFAULT_CATEGORY = "Home & Living";
+
+/**
+ * Clamp an arbitrary string to the ALLOWED_CATEGORIES whitelist.
+ * - Exact match wins.
+ * - Otherwise, do a case-insensitive substring check against each
+ *   canonical name (so "home" still maps to "Home & Living").
+ * - If nothing matches, return DEFAULT_CATEGORY rather than passing
+ *   through an unknown value to the frontend.
+ */
+function normalizeCategory(input: string | null | undefined): string {
+  if (typeof input !== "string") return DEFAULT_CATEGORY;
+  const trimmed = input.trim();
+  if (!trimmed) return DEFAULT_CATEGORY;
+  if ((ALLOWED_CATEGORIES as readonly string[]).includes(trimmed)) {
+    return trimmed;
+  }
+  const lower = trimmed.toLowerCase();
+  const fuzzy = (ALLOWED_CATEGORIES as readonly string[]).find((c) =>
+    lower.includes(c.toLowerCase())
+  );
+  return fuzzy ?? DEFAULT_CATEGORY;
+}
 
 const app = express();
 app.use(express.json());
@@ -47,9 +120,66 @@ if (!process.env.GEMINI_API_KEY) {
   console.log(`✓ Gemini API key loaded. Using model: ${MODEL_ID}`);
 }
 
+// ==========================================
+// ADMIN AUTH MIDDLEWARE
+// ==========================================
+// Every `/api/admin/*` route mutates tenant state (provisioning,
+// suspend, delete, Vercel deploy). Gate it behind a shared secret so
+// the dashboard (or curl with the secret) can call it, but a public
+// visitor cannot.
+//
+// `ADMIN_API_KEY` MUST be set in production. In development we log
+// a warning and fall through so the local flow keeps working.
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
+
+if (process.env.NODE_ENV === "production" && !ADMIN_API_KEY) {
+  console.warn(
+    "⚠️  ADMIN_API_KEY is not set. All /api/admin/* endpoints will reject requests in production. " +
+      "Generate a long random value (e.g. `openssl rand -hex 32`) and add it to your Vercel project env."
+  );
+} else if (ADMIN_API_KEY) {
+  console.log("✓ Admin API key configured (x-admin-key required for /api/admin/*).");
+}
+
+const requireAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Constant-time comparison to avoid timing oracles.
+  const provided = req.get("x-admin-key") || "";
+  const expected = ADMIN_API_KEY || "";
+
+  // In dev, if no key is configured, we log a clear warning and allow
+  // the request through. In production we always require the header.
+  if (process.env.NODE_ENV !== "production" && !expected) {
+    console.warn(`[admin] ${req.method} ${req.path} allowed without key (dev mode)`);
+    return next();
+  }
+  if (!expected) {
+    return res.status(503).json({
+      error: "Admin API not configured",
+      message: "Set ADMIN_API_KEY in the server environment.",
+    });
+  }
+  if (provided.length !== expected.length) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
+  }
+  if (mismatch !== 0) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  return next();
+};
+
 // Initialize database on startup without blocking the dashboard if Postgres is unavailable.
 // On Vercel the DB call may not have a DATABASE_URL set; the catch below keeps
 // the serverless import path from throwing during cold start.
+//
+// We chain `.catch()` on the returned promise AND wrap the body in
+// try/catch, so a stray rejection from `pg-pool`'s internal pool (e.g.
+// its idle-client reaper rejecting after we've already moved on) can
+// never escape this IIFE. The process-level `unhandledRejection` guard
+// at the top of the file is the belt to this IIFE's braces.
 (async () => {
   if (IS_VERCEL && !process.env.DATABASE_URL) {
     console.log("Vercel: no DATABASE_URL, skipping DB init (local UI mode).");
@@ -61,10 +191,364 @@ if (!process.env.GEMINI_API_KEY) {
   } catch (error) {
     console.warn("Database initialization unavailable, continuing in local UI mode:", error);
   }
-})();
+})().catch((error) => {
+  // Belt to the try/catch braces. If even this fires, log and move on.
+  console.warn("[server] DB init IIFE rejected (caught, kept server alive):", error?.message || error);
+});
 
-// Register multi-tenant routes
+// Register multi-tenant routes. We gate the `/api/admin/*` subtree
+// (provisioning, suspend, delete, deploy, etc.) behind the admin
+// token; everything else (AI endpoints, tenant-context routes) stays
+// public for now.
+app.use("/api/admin", requireAdmin);
 app.use("/api", multiTenantRoutes);
+
+// ==========================================
+// DEMO DATA ENDPOINTS (Supabase / Postgres)
+// ==========================================
+// These endpoints are public and read-only. They are designed to never
+// break the Vercel prod build: if the demo schema isn't present, they
+// return an empty 200 response so the frontend can fall back to its
+// hardcoded defaults. All queries are bounded (LIMIT / date filters)
+// to keep serverless invocations fast and within the 60s timeout
+// configured in vercel.json.
+app.get("/api/demo/tenant-metrics", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", metrics: [], stores: [], activity: [] });
+  }
+  try {
+    // v_tenant_metrics is created in supabase/init.sql. If a user
+    // connects this app to a Postgres database that doesn't define
+    // that view, we fail open to an empty payload.
+    const result = await masterPool.query(
+      `SELECT tenant_id, tenant_name, total_revenue, total_orders,
+              total_products, active_stores, revenue_growth_pct, last_order_at
+         FROM v_tenant_metrics
+        ORDER BY total_revenue DESC
+        LIMIT 5`
+    );
+    return res.json({ ok: true, source: "supabase", metrics: result.rows });
+  } catch (error: any) {
+    // Missing view / table → fall back to empty.
+    return res.json({ ok: true, source: "fallback", metrics: [], note: error?.message });
+  }
+});
+
+app.get("/api/demo/stores", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", stores: [] });
+  }
+  try {
+    const result = await masterPool.query(
+      `SELECT id, domain, name, status, created_at,
+              (SELECT COUNT(*) FROM orders o WHERE o.tenant_id = t.id
+                AND o.created_at::date = CURRENT_DATE) AS orders_today
+         FROM tenants t
+         WHERE t.status <> 'deleted'
+         ORDER BY t.created_at DESC
+         LIMIT 20`
+    );
+    return res.json({ ok: true, source: "supabase", stores: result.rows });
+  } catch (error: any) {
+    return res.json({ ok: true, source: "fallback", stores: [], note: error?.message });
+  }
+});
+
+app.get("/api/demo/orders", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", series: [], currentBalance: null, trend: null });
+  }
+  try {
+    // Aggregate revenue per month for the last 6 months. TimescaleDB
+    // is not required — a simple date_trunc works fine for the demo
+    // data volumes.
+    const seriesResult = await masterPool.query(
+      `SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS month,
+              COALESCE(SUM(total_amount), 0)::numeric AS revenue,
+              COUNT(*)::int AS order_count
+         FROM orders
+        WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '5 months'
+        GROUP BY 1
+        ORDER BY 1 ASC`
+    );
+
+    // Current "balance" = revenue in the current calendar month.
+    const balanceResult = await masterPool.query(
+      `SELECT COALESCE(SUM(total_amount), 0)::numeric AS current_month_revenue,
+              COALESCE(SUM(total_amount)
+                FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+                        AND created_at <  date_trunc('month', CURRENT_DATE)), 0)::numeric
+                AS prev_month_revenue
+         FROM orders
+        WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'`
+    );
+
+    const current = Number(balanceResult.rows[0]?.current_month_revenue ?? 0);
+    const prev = Number(balanceResult.rows[0]?.prev_month_revenue ?? 0);
+    const trend = prev > 0 ? +(((current - prev) / prev) * 100).toFixed(1) : 0;
+
+    return res.json({
+      ok: true,
+      source: "supabase",
+      series: seriesResult.rows,
+      currentBalance: current,
+      trend,
+    });
+  } catch (error: any) {
+    return res.json({
+      ok: true,
+      source: "fallback",
+      series: [],
+      currentBalance: null,
+      trend: null,
+      note: error?.message,
+    });
+  }
+});
+
+app.get("/api/demo/activity", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", activity: [] });
+  }
+  try {
+    const result = await masterPool.query(
+      `SELECT id, event_type, title, description, actor_email, created_at
+         FROM audit_events
+        ORDER BY created_at DESC
+        LIMIT 10`
+    );
+    return res.json({ ok: true, source: "supabase", activity: result.rows });
+  } catch (error: any) {
+    return res.json({ ok: true, source: "fallback", activity: [], note: error?.message });
+  }
+});
+
+// ==========================================
+// 0. DEMAND FORECAST + INVENTORY ENGINE
+// ==========================================
+// Real Holt-Winters forecaster — no LLM. Reads orders + products, writes
+// public.demand_forecasts. Drives the InventoryIntelligence tab.
+app.post("/api/forecast/run", async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [], note: "DATABASE_URL not set" });
+  }
+  try {
+    const lookbackDays = Math.min(180, Math.max(7, Number(req.body?.lookbackDays) || 90));
+    const leadTimeDays = Math.min(30, Math.max(1, Number(req.body?.leadTimeDays) || 7));
+
+    const rows = await runForecast(masterPool, { lookbackDays, leadTimeDays });
+
+    // Best-effort persist; the read API falls back to in-memory if persist fails.
+    try {
+      await persistForecast(masterPool, rows);
+    } catch (persistErr: any) {
+      console.warn("[forecast] persist failed, returning rows anyway:", persistErr?.message);
+    }
+
+    return res.json({
+      ok: true,
+      source: "supabase",
+      model: "holt_winters",
+      lookback_days: lookbackDays,
+      lead_time_days: leadTimeDays,
+      generated_at: new Date().toISOString(),
+      row_count: rows.length,
+      rows,
+    });
+  } catch (error: any) {
+    console.error("[forecast] run failed:", error);
+    return res.status(500).json({
+      ok: false,
+      source: "error",
+      error: error?.message || "Forecast failed",
+    });
+  }
+});
+
+app.get("/api/forecast/latest", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [] });
+  }
+  try {
+    // Read the most recent forecast row per product directly from the
+    // persisted table. Useful for first paint so we don't have to re-run
+    // the model on every page load.
+    const result = await masterPool.query(
+      `SELECT DISTINCT ON (f.product_id)
+              f.product_id, f.tenant_id, f.horizon_days, f.predicted_units,
+              f.lower_bound, f.upper_bound, f.model, f.generated_at,
+              p.sku, p.name, p.stock_count, p.price, p.buying_price
+         FROM public.demand_forecasts f
+         JOIN public.products p ON p.id = f.product_id
+        WHERE f.horizon_days = 14
+        ORDER BY f.product_id, f.generated_at DESC`
+    );
+    return res.json({
+      ok: true,
+      source: "supabase",
+      rows: result.rows,
+    });
+  } catch (error: any) {
+    return res.json({
+      ok: true,
+      source: "fallback",
+      rows: [],
+      note: error?.message,
+    });
+  }
+});
+
+// ==========================================
+// 0B. DYNAMIC PRICING ENGINE
+// ==========================================
+// Deterministic cost-plus + market-anchor optimizer. The Gemini call below
+// ("/api/pricing-analyzer") is the AI Strategist *commentary* layer; the
+// math here is the source of truth.
+app.post("/api/pricing/run", async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [] });
+  }
+  try {
+    const targetMargin = Number(req.body?.targetMargin) || 0.40;
+
+    // Run the latest forecast first so the pricing engine can use the
+    // stockout-urgency signal. Forecast is fast and idempotent.
+    const forecasts = await runForecast(masterPool);
+    const rows = await runPricing(masterPool, forecasts, { targetMargin });
+
+    try {
+      await persistPricing(masterPool, rows);
+    } catch (persistErr: any) {
+      console.warn("[pricing] persist failed, returning rows anyway:", persistErr?.message);
+    }
+
+    return res.json({
+      ok: true,
+      source: "supabase",
+      model: "cost_plus_market",
+      target_margin: targetMargin,
+      generated_at: new Date().toISOString(),
+      row_count: rows.length,
+      rows,
+    });
+  } catch (error: any) {
+    console.error("[pricing] run failed:", error);
+    return res.status(500).json({
+      ok: false,
+      source: "error",
+      error: error?.message || "Pricing optimization failed",
+    });
+  }
+});
+
+app.get("/api/pricing/latest", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [] });
+  }
+  try {
+    const result = await masterPool.query(
+      `SELECT DISTINCT ON (s.product_id)
+              s.product_id, s.tenant_id, s.competitor_avg,
+              s.recommended_price, s.promotional_price,
+              s.elasticity, s.market_positioning, s.created_at,
+              p.sku, p.name, p.price, p.buying_price, p.stock_count
+         FROM public.pricing_snapshots s
+         JOIN public.products p ON p.id = s.product_id
+        ORDER BY s.product_id, s.created_at DESC`
+    );
+    return res.json({ ok: true, source: "supabase", rows: result.rows });
+  } catch (error: any) {
+    return res.json({ ok: true, source: "fallback", rows: [], note: error?.message });
+  }
+});
+
+// ==========================================
+// 0b. ACTION INBOX — recommendations engine
+// ==========================================
+// Turns the latest forecast + pricing rows into prioritized, typed actions
+// the merchant can Accept or Dismiss. Closes the AI loop: model proposes,
+// merchant ratifies, system logs the decision in audit_events.
+app.post("/api/recommendations/run", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [], note: "DATABASE_URL not set" });
+  }
+  try {
+    // Re-run forecaster + pricing first so the inbox is fresh. These are
+    // idempotent and fast (~hundreds of ms on the demo dataset).
+    const forecasts = await runForecast(masterPool);
+    const pricings  = await runPricing(masterPool, forecasts);
+    const actions   = await runRecommendations(masterPool, forecasts, pricings);
+
+    let persisted: typeof actions = actions;
+    try {
+      persisted = await persistRecommendations(masterPool, actions);
+    } catch (persistErr: any) {
+      console.warn("[recommendations] persist failed, returning in-memory rows:", persistErr?.message);
+    }
+
+    return res.json({
+      ok: true,
+      source: "supabase",
+      model: "joint_forecast_pricing",
+      generated_at: new Date().toISOString(),
+      row_count: persisted.length,
+      rows: persisted,
+    });
+  } catch (error: any) {
+    console.error("[recommendations] run failed:", error);
+    return res.status(500).json({
+      ok: false,
+      source: "error",
+      error: error?.message || "Recommendations run failed",
+    });
+  }
+});
+
+app.get("/api/recommendations/latest", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, source: "fallback", rows: [] });
+  }
+  try {
+    const rows = await fetchInbox(masterPool, 50);
+    return res.json({ ok: true, source: "supabase", row_count: rows.length, rows });
+  } catch (error: any) {
+    return res.json({ ok: true, source: "fallback", rows: [], note: error?.message });
+  }
+});
+
+app.post("/api/recommendations/:id/accept", async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({ ok: false, source: "fallback", error: "DATABASE_URL not set" });
+  }
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ ok: false, error: "Missing id" });
+    const actor = (req.body?.actor as string) || "merchant";
+    const row = await resolveRecommendation(masterPool, id, "accepted", actor);
+    if (!row) return res.status(404).json({ ok: false, error: "Recommendation not found or not open" });
+    return res.json({ ok: true, source: "supabase", row });
+  } catch (error: any) {
+    console.error("[recommendations] accept failed:", error);
+    return res.status(500).json({ ok: false, error: error?.message || "Accept failed" });
+  }
+});
+
+app.post("/api/recommendations/:id/dismiss", async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({ ok: false, source: "fallback", error: "DATABASE_URL not set" });
+  }
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ ok: false, error: "Missing id" });
+    const actor = (req.body?.actor as string) || "merchant";
+    const row = await resolveRecommendation(masterPool, id, "dismissed", actor);
+    if (!row) return res.status(404).json({ ok: false, error: "Recommendation not found or not open" });
+    return res.json({ ok: true, source: "supabase", row });
+  } catch (error: any) {
+    console.error("[recommendations] dismiss failed:", error);
+    return res.status(500).json({ ok: false, error: error?.message || "Dismiss failed" });
+  }
+});
 
 // Initialize GoogleGenAI SDK safely
 // We lazy-load the client when requested to prevent immediate crashes if GEMINI_API_KEY is not immediately provided
@@ -326,46 +810,116 @@ app.post("/api/generate-social", async (req, res) => {
 // ==========================================
 // 3. PRICING COMPETITION & REPORT ENDPOINT
 // ==========================================
+// This route is the *AI Strategist* layer: it first runs the deterministic
+// pricing engine, then asks Gemini to write a plain-language commentary
+// explaining the recommendation. The math is the source of truth — the LLM
+// is the "narrator", not the "brain".
 app.post("/api/pricing-competition", async (req, res) => {
   try {
-    const { productName, currentPrice, competitorPrices, uniqueSells } = req.body;
-    if (!productName || !currentPrice) {
+    const { productName, currentPrice, competitorPrices, uniqueSells, language } = req.body;
+    if (!productName || currentPrice == null) {
       return res.status(400).json({ error: "Product name and current price are required." });
     }
 
-    const ai = getGeminiClient();
+    // ---- 1. Deterministic anchor ---------------------------------------
+    // Treat the competitor list as a market sample. If the caller didn't
+    // supply any, fall back to "we're 5% under an unseen market".
+    const competitorNums: number[] = Array.isArray(competitorPrices)
+      ? competitorPrices.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0)
+      : [];
+    const competitorAverage =
+      competitorNums.length > 0
+        ? competitorNums.reduce((a, b) => a + b, 0) / competitorNums.length
+        : Number(currentPrice) * 0.95;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_ID,
-      contents: `You are a strategic pricing consultant for small enterprises. Review the pricing structure of:
-      Product: ${productName}
-      Our Price: $${currentPrice}
-      Competitors: ${JSON.stringify(competitorPrices || [])}
-      Our Unique Value: ${uniqueSells || "Not specified."}
-      
-      Analyze competitor pricing, evaluate overall competitor average, assess if our product is Overpriced, Underpriced, or Fairly Priced, and suggest optimal adjustments. Explain the strategic rationale.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            competitorAverage: { type: Type.NUMBER, description: "Calculated average price of competition" },
-            marketPositioning: { type: Type.STRING, description: "Position classification: 'Premium High-Value', 'Value Leader', or 'Market Average'" },
-            analysisSummary: { type: Type.STRING, description: "A comprehensive description explaining of competitive strengths & weaknesses (2 paragraphs)" },
-            recommendedPrice: { type: Type.NUMBER, description: "Suggested normal listing price for optimal sales velocity" },
-            promotionalPrice: { type: Type.NUMBER, description: "Recommended discount price tag for quick sales or weekend flash promotions" },
-            tacticalAction: { type: Type.STRING, description: "A highly actionable strategic move (e.g. 'Bundle with item B', 'Highlight materials in banner')" }
+    const priceIndex = (Number(currentPrice) - competitorAverage) / Math.max(1, competitorAverage);
+    const marketPositioning: "premium" | "mid" | "value" =
+      priceIndex > 0.05 ? "premium" : priceIndex < -0.05 ? "value" : "mid";
+
+    // Target a 40% gross margin, nudged toward the market.
+    const cost = Math.max(1, Number(currentPrice) * 0.6);
+    const costPlus = cost * 1.4;
+    const marketAnchor = competitorAverage * (priceIndex > 0.05 ? 1.03 : 0.97);
+    const recommendedPrice = Number(((0.55 * costPlus + 0.45 * marketAnchor)).toFixed(2));
+    const promotionalPrice = Number((recommendedPrice * 0.93).toFixed(2));
+
+    const tacticalAction =
+      marketPositioning === "premium"
+        ? "Lean into the quality story — keep price, refresh hero copy and bundle."
+        : marketPositioning === "value"
+          ? "Test a +5% increase; the gap to market has room to close."
+          : "Hold the line. Run a flash promo this weekend to test demand elasticity.";
+
+    // ---- 2. AI Strategist commentary layer ------------------------------
+    // The LLM only writes the narrative. If it fails, we still ship the math.
+    let analysisSummary = "";
+    try {
+      const ai = getGeminiClient();
+      const langInstruction =
+        language === "bn"
+          ? "Respond in Bangla (বাংলা)."
+          : "Respond in English.";
+      const response = await ai.models.generateContent({
+        model: MODEL_ID,
+        contents: `You are an AI Strategist commenting on a deterministic pricing recommendation for a small enterprise.
+${langInstruction}
+
+Product: ${productName}
+Our Price: $${currentPrice}
+Competitor Average: $${competitorAverage.toFixed(2)}
+Market Positioning: ${marketPositioning}
+Deterministic Recommended Price: $${recommendedPrice}
+Deterministic Promotional Price: $${promotionalPrice}
+Deterministic Tactical Action: ${tacticalAction}
+Unique Value: ${uniqueSells || "Not specified."}
+
+Write a 2-paragraph analysis explaining why the deterministic engine reached this recommendation, framed for the SME owner. Do NOT recompute or override the price. Just explain.`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              analysisSummary: { type: Type.STRING },
+            },
+            required: ["analysisSummary"],
           },
-          required: ["competitorAverage", "marketPositioning", "analysisSummary", "recommendedPrice", "promotionalPrice", "tacticalAction"]
-        }
-      }
-    });
+        },
+      });
+      const parsed = JSON.parse(response.text || "{}");
+      analysisSummary = parsed.analysisSummary || "";
+    } catch (aiErr: any) {
+      // AI is a commentary layer. If it fails, fall back to a deterministic
+      // narrative so the UI never breaks.
+      console.warn("[pricing-competition] AI commentary unavailable:", aiErr?.message);
+      analysisSummary =
+        `The deterministic engine placed this product in the "${marketPositioning}" band ` +
+        `based on the gap (${(priceIndex * 100).toFixed(1)}%) to the competitor average. ` +
+        `The recommended price balances a 40% margin floor with a nudge toward the market. ` +
+        `Consider the tactical action above for the next 7 days.`;
+    }
 
-    const parsedData = JSON.parse(response.text || "{}");
-    res.json(parsedData);
+    return res.json({
+      competitorAverage: Number(competitorAverage.toFixed(2)),
+      marketPositioning:
+        marketPositioning === "premium"
+          ? "Premium High-Value"
+          : marketPositioning === "value"
+            ? "Value Leader"
+            : "Market Average",
+      analysisSummary,
+      recommendedPrice,
+      promotionalPrice,
+      tacticalAction,
+      // Extras the frontend can render to make the determinism visible.
+      model: "deterministic_engine_with_ai_commentary",
+      priceIndex: Number(priceIndex.toFixed(3)),
+    });
   } catch (error: any) {
-    console.error("AI Pricing Analyser Error:", error);
-    res.status(500).json({ error: error.message || "Failed analyzing pricing competition" });
+    console.error("[pricing-competition] failed:", error);
+    return res.status(500).json({
+      error: "Pricing analysis failed",
+      details: error?.message || "Unknown error",
+    });
   }
 });
 
@@ -491,7 +1045,7 @@ app.post("/api/analyze-product-image", async (req, res) => {
             
             Strictly return a JSON object containing:
             1. 'identifiedQuery': The exact authentic brand model or consumer product name identified (e.g., 'Rowenta X-Cel Handheld Garment Steamer' or 'Valve Steam Deck 64GB'). Be as specific and accurate as possible. No placeholders or generic descriptions.
-            2. 'category': Must be exactly one of: Accessories, Home & Living, Apparel, Office, Food & Beverage, Garden.`
+            2. 'category': Must be exactly one of: Accessories, Home & Living, Apparel, Office, Food & Beverage, Garden. Pick the closest match — do not invent a new category.`
           }
         ],
         config: {
@@ -500,7 +1054,7 @@ app.post("/api/analyze-product-image", async (req, res) => {
             type: Type.OBJECT,
             properties: {
               identifiedQuery: { type: Type.STRING, description: "Highly specific product brand and model name" },
-              category: { type: Type.STRING, description: "Must be exactly one of: Accessories, Home & Living, Apparel, Office, Food & Beverage, Garden" }
+              category: { type: Type.STRING, description: "Must be exactly one of: Accessories, Home & Living, Apparel, Office, Food & Beverage, Garden (server clamps to this set)" }
             },
             required: ["identifiedQuery", "category"]
           }
@@ -510,7 +1064,10 @@ app.post("/api/analyze-product-image", async (req, res) => {
       const parsedVision = JSON.parse(visionResponse.text || "{}");
       if (parsedVision.identifiedQuery) {
         identifiedName = parsedVision.identifiedQuery;
-        identifiedCategory = parsedVision.category || "Home & Living";
+        // Clamp the AI's answer to the canonical category whitelist —
+        // if Gemini hallucinates "Electronics" or "Footwear" we still
+        // send a value the storefront UI can render.
+        identifiedCategory = normalizeCategory(parsedVision.category);
         isIdentified = true;
         console.log(`Stage 1 Multimodal Identification Success: Identified product as "${identifiedName}" in category "${identifiedCategory}"`);
       }
@@ -645,7 +1202,9 @@ app.post("/api/analyze-product-image", async (req, res) => {
         competitionAvg: baseCompAvg,
         ourPrice: baseOurPrice,
         discountPercentage: calculatedDiscount || 15,
-        category: identifiedCategory,
+        // Clamp the category the same way the AI path does, so the
+        // fallback never returns a value outside ALLOWED_CATEGORIES.
+        category: normalizeCategory(identifiedCategory),
         desc: `Introducing the premium matched ${cleanName}. Compiling customer reviewer metrics, material specification sheets, and manual logs aggregated from active web catalogs, this item is engineered for long-lasting convenience. ${extraDesc}. Fully certified and retail safe. ${keywords}`,
         websitesMixed: ["Amazon Vendor Hub", "Walmart Home Care", "E-Commerce Market Index"],
         isFallback: true
@@ -825,10 +1384,20 @@ async function startServer() {
     // Production Mode: Serve static files. On Vercel, `process.cwd()` is
     // `/var/task` and `dist/` is deployed alongside the function, so
     // `path.join(process.cwd(), "dist")` resolves correctly.
+    //
+    // IMPORTANT: mount the SPA fallback *after* the API router (which is
+    // already registered above) and *after* `express.static` so deep
+    // links like `/api/foo` return a real 404 instead of being
+    // overwritten with `index.html`.
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get(/^(?!\/api(?:\/|$)).*/, (req, res, next) => {
+      // If the request matched no static asset, fall back to the SPA
+      // shell. We only want this for client-side routes, not for
+      // unhandled /api/* paths (let Express return its default 404).
+      res.sendFile(path.join(distPath, "index.html"), (err) => {
+        if (err) next(err);
+      });
     });
   }
 

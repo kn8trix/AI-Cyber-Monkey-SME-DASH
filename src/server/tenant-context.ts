@@ -22,8 +22,19 @@ export async function tenantContextMiddleware(req: Request, res: Response, next:
     let tenantId: string | undefined;
     const host = req.hostname || req.get('host');
 
-    // Skip tenant context for admin routes
-    if (host?.startsWith('admin.') || host?.startsWith('localhost')) {
+    // Skip tenant context for admin routes — they are gated by
+    // `requireAdmin` (x-admin-key) and must never be tied to a tenant.
+    // The `admin.` host prefix was the old signal, but admin routes can
+    // also be called on the main dashboard host (e.g. when the Vercel
+    // dashboard proxies /api/admin/* to the same Express app), so we
+    // also short-circuit on the URL path. `localhost` is kept as a
+    // dev-only convenience.
+    if (
+      req.path.startsWith('/api/admin/') ||
+      req.path === '/api/admin' ||
+      host?.startsWith('admin.') ||
+      host?.startsWith('localhost')
+    ) {
       return next();
     }
 

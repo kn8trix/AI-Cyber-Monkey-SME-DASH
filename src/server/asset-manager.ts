@@ -189,25 +189,61 @@ class AssetManager {
   }
 
   /**
-   * List files for tenant
+   * List files for tenant.
+   *
+   * S3's `listObjectsV2` returns at most 1000 keys per call. The previous
+   * implementation only returned that first page, so tenants with more
+   * than 1000 assets silently lost data. We now loop on
+   * `ContinuationToken` until S3 stops paginating, with an optional
+   * `maxKeys` cap (default 5000) to keep responses bounded.
    */
-  async listFiles(tenantId: string, folder?: string): Promise<any[]> {
+  async listFiles(
+    tenantId: string,
+    folder?: string,
+    options: { maxKeys?: number } = {}
+  ): Promise<any[]> {
+    const maxKeys = options.maxKeys ?? 5000;
+    const prefix = folder
+      ? `tenants/${tenantId}/${folder}/`
+      : `tenants/${tenantId}/`;
+
+    const collected: any[] = [];
+    let continuationToken: string | undefined;
+
     try {
-      const prefix = folder 
-        ? `tenants/${tenantId}/${folder}/`
-        : `tenants/${tenantId}/`;
+      do {
+        const result: AWS.S3.ListObjectsV2Output = await s3.listObjectsV2({
+          Bucket: this.s3BucketBase,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+          MaxKeys: Math.min(1000, maxKeys - collected.length)
+        }).promise();
 
-      const result = await s3.listObjectsV2({
-        Bucket: this.s3BucketBase,
-        Prefix: prefix
-      }).promise();
+        for (const item of result.Contents || []) {
+          collected.push({
+            key: item.Key,
+            size: item.Size,
+            lastModified: item.LastModified,
+            url: this.getPublicUrl(item.Key!)
+          });
+          if (collected.length >= maxKeys) break;
+        }
 
-      return (result.Contents || []).map(item => ({
-        key: item.Key,
-        size: item.Size,
-        lastModified: item.LastModified,
-        url: this.getPublicUrl(item.Key!)
-      }));
+        // Only keep paginating if (a) S3 says there is more AND
+        // (b) we haven't hit the caller's cap.
+        continuationToken =
+          result.IsTruncated && collected.length < maxKeys
+            ? result.NextContinuationToken
+            : undefined;
+      } while (continuationToken);
+
+      if (collected.length === maxKeys) {
+        console.warn(
+          `[asset-manager] listFiles for ${prefix} hit maxKeys=${maxKeys} cap; results may be truncated.`
+        );
+      }
+
+      return collected;
     } catch (error: any) {
       console.error('List files error:', error);
       throw new Error(`List failed: ${error.message}`);

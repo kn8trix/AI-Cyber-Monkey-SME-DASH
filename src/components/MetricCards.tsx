@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TrendingUp, Store, Users } from 'lucide-react';
 
 export interface MetricCardData {
@@ -37,6 +37,27 @@ const defaultMetrics: MetricCardData[] = [
   }
 ];
 
+// Shape of a row coming back from /api/demo/tenant-metrics. The view
+// in supabase/init.sql returns more fields than we consume; we only
+// type what we use so the frontend stays loose.
+interface DemoMetricRow {
+  total_revenue?: number | string;
+  total_orders?: number | string;
+  total_products?: number | string;
+  active_stores?: number | string;
+  revenue_growth_pct?: number | string;
+}
+
+function formatCurrency(n: number): string {
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function toInt(n: number | string | undefined | null): number {
+  if (n == null) return 0;
+  const v = typeof n === 'string' ? parseFloat(n) : n;
+  return Number.isFinite(v) ? v : 0;
+}
+
 const getIcon = (type: string) => {
   switch (type) {
     case 'revenue':
@@ -50,10 +71,64 @@ const getIcon = (type: string) => {
   }
 };
 
-export default function MetricCards({ metrics = defaultMetrics }: MetricCardsProps) {
+export default function MetricCards({ metrics }: MetricCardsProps) {
+  // If the parent passed metrics explicitly (e.g. preview/tests), honor
+  // them. Otherwise, attempt to fetch from /api/demo/tenant-metrics
+  // and fall back to the hardcoded defaults if the request fails or
+  // the backend isn't configured.
+  const [live, setLive] = useState<MetricCardData[] | null>(null);
+
+  useEffect(() => {
+    if (metrics) return; // explicit override wins
+    let cancelled = false;
+    fetch("/api/demo/tenant-metrics")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled || !json || json.source !== "supabase") return;
+        const row: DemoMetricRow = (json.metrics && json.metrics[0]) || {};
+        const revenue = toInt(row.total_revenue);
+        const orders = toInt(row.total_orders);
+        const stores = toInt(row.active_stores);
+        const growth = toInt(row.revenue_growth_pct);
+        // "New customers" is approximated by recent order count for
+        // the demo — the schema doesn't model customers explicitly.
+        setLive([
+          {
+            label: "Total Revenue",
+            value: formatCurrency(revenue),
+            trend: growth,
+            period: "from last month",
+            icon: "revenue",
+          },
+          {
+            label: "New Customers",
+            value: String(orders),
+            trend: 0,
+            period: "from last month",
+            icon: "customers",
+          },
+          {
+            label: "Active Stores",
+            value: String(stores),
+            trend: 0,
+            period: "currently deployed",
+            icon: "stores",
+          },
+        ]);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [metrics]);
+
+  const resolved = metrics ?? live ?? defaultMetrics;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {metrics.map((metric, idx) => (
+      {resolved.map((metric, idx) => (
         <div
           key={idx}
           className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"

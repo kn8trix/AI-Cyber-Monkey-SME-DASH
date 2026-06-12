@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StorefrontProduct, StorefrontProfile, CopyGenOutput, Competitor, PricingAnalysisOutput, SorterRecord, SorterResult, ConnectedAccount, normalizeTargetSites, withNormalizedTargetSites } from "../types";
+import { useT } from "../i18n/LanguageContext";
 import { 
   ArrowLeft, 
   Cpu, 
@@ -46,6 +47,7 @@ interface SmeCatalogSelectorProps {
 }
 
 export default function SmeCatalogSelector({ products, storefrontProfiles, onUpdateProduct, onAddProduct, onAddLog }: SmeCatalogSelectorProps) {
+  const t = useT();
   // Navigation: null if viewing catalog list, otherwise contains selected product id
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
@@ -86,10 +88,10 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
             <div>
               <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-orange-600" />
-                Live Sheets Catalog System
+                {t("catalog.title")}
               </h2>
               <p className="text-xs text-slate-500 font-medium">
-                Visualizing all live product records synchronized from our Google Sheets workspace. Click any row/card to run specialized AI models.
+                {t("catalog.subtitle")}
               </p>
             </div>
 
@@ -104,11 +106,11 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                 className="inline-flex items-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2 text-xs font-black text-white shadow-sm hover:bg-orange-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                Add Product
+                {t("catalog.addBtn")}
               </button>
               <input
                 type="text"
-                placeholder="Search spreadsheets..."
+                placeholder={t("catalog.searchPlaceholder")}
                 className="text-xs p-2.5 border border-slate-200 rounded-xl bg-white w-full sm:w-60 focus:outline-none focus:ring-2 focus:ring-orange-500/15"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -131,16 +133,16 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-                    <th className="px-6 py-4">Thumbnail & Identity</th>
-                    <th className="px-6 py-4">Category</th>
-                    <th className="px-6 py-4">Buying Price</th>
-                    <th className="px-6 py-4">Selling Price (MSRP)</th>
-                    <th className="px-6 py-4 text-center">Profit Margin</th>
-                    <th className="px-6 py-4 text-center">Target Stores</th>
-                    <th className="px-6 py-4 text-center">In Stock</th>
-                    <th className="px-6 py-4 text-center">Conversions</th>
-                    <th className="px-6 py-4 text-center">Tenant Targeting</th>
-                    <th className="px-6 py-4 text-right">Action</th>
+                    <th className="px-6 py-4">{t("catalog.colThumb")}</th>
+                    <th className="px-6 py-4">{t("catalog.colCategory")}</th>
+                    <th className="px-6 py-4">{t("catalog.colBuying")}</th>
+                    <th className="px-6 py-4">{t("catalog.colSelling")}</th>
+                    <th className="px-6 py-4 text-center">{t("catalog.colMargin")}</th>
+                    <th className="px-6 py-4 text-center">{t("catalog.colTarget")}</th>
+                    <th className="px-6 py-4 text-center">{t("catalog.colStock")}</th>
+                    <th className="px-6 py-4 text-center">{t("catalog.colConv")}</th>
+                    <th className="px-6 py-4 text-center">{t("catalog.colTarget")}</th>
+                    <th className="px-6 py-4 text-right">{t("catalog.colActions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
@@ -174,7 +176,7 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                                 {prod.name}
                               </h4>
                               <p className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">
-                                SKU: {prod.id}
+                                {t("catalog.hubSku", { sku: prod.id })}
                               </p>
                             </div>
                           </td>
@@ -190,7 +192,7 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                           <td className="px-6 py-4 font-mono font-bold text-slate-700">
                             {buyingPriceVal > 0 ? `$${buyingPriceVal.toFixed(2)}` : (
                               <span className="text-amber-600 select-none bg-amber-50 px-1.5 py-0.5 rounded text-[10px] border border-amber-100">
-                                $0.00 (Unstated)
+                                {t("catalog.hubZeroRoi")}
                               </span>
                             )}
                           </td>
@@ -204,10 +206,10 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                           <td className="px-6 py-4 text-center">
                             <div className="inline-flex flex-col items-center">
                               <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold font-mono ${marginPercentage > 30 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-600'}`}>
-                                {marginPercentage}% ROI
+                                {t("catalog.badgeRoi", { pct: marginPercentage })}
                               </span>
                               <span className="text-[9px] text-slate-405 font-mono mt-0.5">
-                                Profit: ${profit.toFixed(2)}
+                                {t("catalog.hubProfit", { value: profit.toFixed(2) })}
                               </span>
                             </div>
                           </td>
@@ -230,7 +232,7 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                                   .map(profile => profile.id);
                                 onUpdateProduct(withNormalizedTargetSites({ ...prod, targetSites: nextTargets }));
                               }}
-                              placeholder="comma, separated, store, names"
+                              placeholder={t("catalog.hubTargetSitesPlaceholder")}
                               className="w-full min-w-[180px] text-[11px] font-mono px-2 py-1 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-500"
                             />
                           </td>
@@ -238,18 +240,18 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                           {/* Stock Count */}
                           <td className="px-6 py-4 text-center font-mono">
                             <span className={`font-bold ${isLowStock ? 'text-amber-600' : 'text-slate-850'}`}>
-                              {prod.stockCount ?? 25} units
+                              {prod.stockCount ?? 25}{t("catalog.hubUnitsSuffix")}
                             </span>
                             {isLowStock && (
-                              <span className="block text-[8px] bg-amber-500 text-white font-black uppercase rounded py-0.2 tracking-wider mt-0.5">Low</span>
+                              <span className="block text-[8px] bg-amber-500 text-white font-black uppercase rounded py-0.2 tracking-wider mt-0.5">{t("catalog.hubLowBadge")}</span>
                             )}
                           </td>
 
                           {/* Stats conversions */}
                           <td className="px-6 py-4 text-center font-mono">
                             <div className="flex flex-col items-center">
-                              <span className="font-semibold text-slate-700">{prod.salesCount} sold</span>
-                              <span className="text-[10px] text-slate-400 mt-0.5">({prod.viewsCount} clicks)</span>
+                              <span className="font-semibold text-slate-700">{prod.salesCount}{t("catalog.hubSoldSuffix")}</span>
+                              <span className="text-[10px] text-slate-400 mt-0.5">({prod.viewsCount}{t("catalog.hubClicksSuffix")})</span>
                             </div>
                           </td>
 
@@ -282,7 +284,7 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                           {/* Action Action */}
                           <td className="px-6 py-4 text-right">
                             <button className="px-3 py-1 bg-slate-100 hover:bg-orange-500 hover:text-white border border-slate-205 rounded-xl font-bold text-[11px] transition-colors cursor-pointer group-hover:border-orange-500">
-                              Open Detail Hub
+                              {t("catalog.openDetailHub")}
                             </button>
                           </td>
                         </tr>
@@ -291,7 +293,7 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                   ) : (
                     <tr>
                       <td colSpan={10} className="text-center py-12 text-slate-400 italic">
-                        No product spreadsheets matched your filtering.
+                        {t("catalog.listEmpty")}
                       </td>
                     </tr>
                   )}
@@ -301,10 +303,10 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
 
             {/* Bottom aggregate indicator summary */}
             <div className="bg-slate-50 px-6 py-3 border-t border-slate-150 text-[10px] text-slate-400 font-mono flex flex-wrap justify-between items-center gap-2">
-              <span>Displaying {filteredProducts.length} of {products.length} catalog items</span>
+              <span>{t("catalog.listCount", { visible: filteredProducts.length, total: products.length })}</span>
               <span className="flex items-center gap-1.5 font-bold uppercase text-slate-500">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-505" />
-                Live synchronization working
+                {t("catalog.hubLiveStatus")}
               </span>
             </div>
           </div>
@@ -314,38 +316,38 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
               <div className="w-full max-w-2xl rounded-3xl border border-orange-100 bg-white p-6 shadow-2xl">
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-black text-slate-900">Product Uploader</h3>
-                    <p className="text-xs text-slate-500">Add a catalog item and choose which tenant storefronts should see it.</p>
+                    <h3 className="text-lg font-black text-slate-900">{t("catalog.uploaderTitle")}</h3>
+                    <p className="text-xs text-slate-500">{t("catalog.uploaderSubtitle")}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowUploader(false)}
                     className="rounded-xl border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
                   >
-                    Close
+                    {t("catalog.uploaderClose")}
                   </button>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold text-slate-700">Product name
+                  <label className="text-xs font-semibold text-slate-700">{t("catalog.uploaderNameLabel")}
                     <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none" />
                   </label>
-                  <label className="text-xs font-semibold text-slate-700">Category
+                  <label className="text-xs font-semibold text-slate-700">{t("catalog.uploaderCategoryLabel")}
                     <input value={draftCategory} onChange={(e) => setDraftCategory(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none" />
                   </label>
-                  <label className="text-xs font-semibold text-slate-700">Buying price
+                  <label className="text-xs font-semibold text-slate-700">{t("catalog.uploaderBuyingLabel")}
                     <input type="number" min="0" step="0.01" value={draftBuyingPrice} onChange={(e) => setDraftBuyingPrice(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none" />
                   </label>
-                  <label className="text-xs font-semibold text-slate-700">Selling price
+                  <label className="text-xs font-semibold text-slate-700">{t("catalog.uploaderSellingLabel")}
                     <input type="number" min="0" step="0.01" value={draftSellingPrice} onChange={(e) => setDraftSellingPrice(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none" />
                   </label>
-                  <label className="text-xs font-semibold text-slate-700">Stock count
+                  <label className="text-xs font-semibold text-slate-700">{t("catalog.uploaderStockLabel")}
                     <input type="number" min="0" value={draftStockCount} onChange={(e) => setDraftStockCount(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none" />
                   </label>
-                  <label className="text-xs font-semibold text-slate-700">Image URL
-                    <input value={draftImageUrl} onChange={(e) => setDraftImageUrl(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none" placeholder="https://..." />
+                  <label className="text-xs font-semibold text-slate-700">{t("catalog.uploaderImageLabel")}
+                    <input value={draftImageUrl} onChange={(e) => setDraftImageUrl(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none" placeholder={t("catalog.uploaderImagePlaceholder")} />
                   </label>
-                  <label className="md:col-span-2 text-xs font-semibold text-slate-700">Description
+                  <label className="md:col-span-2 text-xs font-semibold text-slate-700">{t("catalog.uploaderDescLabel")}
                     <textarea rows={3} value={draftDesc} onChange={(e) => setDraftDesc(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none" />
                   </label>
                 </div>
@@ -353,15 +355,15 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                 <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50/60 p-4">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-700">Tenant targeting</p>
-                      <p className="text-[11px] text-slate-500">Select which storefronts this new item should be visible on.</p>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-700">{t("catalog.uploaderTenantTitle")}</p>
+                      <p className="text-[11px] text-slate-500">{t("catalog.uploaderTenantSubtitle")}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setSelectedTargetIds(storefrontProfiles.map(profile => profile.id))}
                       className="text-[11px] font-semibold text-orange-700 underline underline-offset-4"
                     >
-                      Select all
+                      {t("catalog.addSelectAll")}
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -392,14 +394,14 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                     onClick={() => setShowUploader(false)}
                     className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                   >
-                    Cancel
+                    {t("catalog.uploaderCancel")}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       const trimmedName = draftName.trim();
                       if (!trimmedName) {
-                        alert("Please provide a product name before saving.");
+                        alert(t("catalog.uploaderAlertName"));
                         return;
                       }
 
@@ -433,7 +435,7 @@ export default function SmeCatalogSelector({ products, storefrontProfiles, onUpd
                     }}
                     className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-black text-white hover:bg-orange-700"
                   >
-                    Save Product
+                    {t("catalog.uploaderSave")}
                   </button>
                 </div>
               </div>
@@ -464,6 +466,7 @@ interface ProductPageDetailProps {
 }
 
 function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: ProductPageDetailProps) {
+  const t = useT();
   // Local editable parameters
   const [localName, setLocalName] = useState(product.name);
   const [localCategory, setLocalCategory] = useState(product.category);
@@ -922,14 +925,14 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
           className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer text-slate-700 transition"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Live spreadsheet list
+          {t("catalog.hubBack")}
         </button>
 
         <div className="flex items-center gap-2">
           {isSavedRecently && (
             <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl uppercase tracking-wider flex items-center gap-1">
               <Check className="w-3.5 h-3.5" />
-              Spreadsheet synchronized
+              {t("catalog.syncedToast")}
             </span>
           )}
           <button
@@ -940,12 +943,12 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
             {savingFlag ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Syncing Sheets...
+                {t("catalog.syncingBtn")}
               </>
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                Commit sheet edits live
+                {t("catalog.commitBtn")}
               </>
             )}
           </button>
@@ -974,25 +977,25 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                 {localCategory || "Retail Product"}
               </span>
               <span className="text-slate-500 text-[10px] uppercase font-mono font-bold tracking-widest bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/50">
-                Item ID: {product.id}
+                {t("catalog.hubItemId", { id: product.id })}
               </span>
             </div>
             <h1 className="text-xl lg:text-3xl font-black tracking-tight truncate text-slate-50">
               {localName}
             </h1>
             <p className="text-xs text-slate-405 leading-relaxed font-normal font-sans max-w-2xl">
-              {localDesc || "No dynamic description drafted yet. Click the AI copywriter below to synthesize converting retail content instantly."}
+              {localDesc || t("catalog.hubNoDescription")}
             </p>
           </div>
 
           {/* Quick specs metrics */}
           <div className="grid grid-cols-2 gap-3 shrink-0 bg-slate-900/60 p-4 rounded-2xl border border-slate-800/60 w-full md:w-auto">
             <div className="text-center">
-              <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Markup Margin</span>
+              <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">{t("catalog.hubKpiMargin")}</span>
               <span className="text-lg font-black font-mono text-emerald-400">{calculatedROI}%</span>
             </div>
             <div className="text-center border-l border-slate-800/60 pl-3">
-              <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Avg Traffic Click</span>
+              <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">{t("catalog.hubKpiTraffic")}</span>
               <span className="text-lg font-black font-mono text-cyan-405">{product.viewsCount}</span>
             </div>
           </div>
@@ -1005,17 +1008,17 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <Database className="w-4 h-4 text-orange-500" />
-              Dynamic Spreadsheet Records
+              {t("catalog.hubSectionRecords")}
             </h3>
             <span className="text-[9px] font-mono font-bold text-orange-700 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Visual Editor Mode
+              {t("catalog.hubSectionEditor")}
             </span>
           </div>
 
           <div className="space-y-3.5 text-xs">
             {/* Field: Product Name */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Product Title Name</label>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t("catalog.hubFieldTitle")}</label>
               <input
                 type="text"
                 className="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/15 font-semibold text-slate-800"
@@ -1026,7 +1029,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
 
             {/* Field: Product Category */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Category Sheet Mapping</label>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t("catalog.hubFieldCategory")}</label>
               <select
                 className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/15 font-semibold text-slate-700"
                 value={localCategory}
@@ -1045,8 +1048,8 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
               {/* Field: Buying Price */}
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1">
-                  Buying Price (Cost)
-                  <span className="text-[9px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded font-black font-mono">NEW</span>
+                  {t("catalog.hubFieldBuying")}
+                  <span className="text-[9px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded font-black font-mono">{t("catalog.hubNewBadge")}</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-bold">$</span>
@@ -1063,7 +1066,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
 
               {/* Field: Selling Price / Retail MSRP */}
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Selling Price (MSRP)</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t("catalog.hubFieldSelling")}</label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-bold">$</span>
                   <input
@@ -1080,7 +1083,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
 
             {/* Field: Stock Count */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Spreadsheet Stock Counts</label>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t("catalog.hubFieldStock")}</label>
               <div className="relative">
                 <span className="absolute left-3 top-2.5 text-slate-400"><Package className="w-4 h-4" /></span>
                 <input
@@ -1091,12 +1094,12 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                   onChange={(e) => setLocalStockCount(parseInt(e.target.value) || 0)}
                 />
               </div>
-              <p className="text-[10px] text-slate-400 font-medium">Controls warning flags and triggers automated product alerts in the catalog flow.</p>
+              <p className="text-[10px] text-slate-400 font-medium">{t("catalog.hubFieldStockHint")}</p>
             </div>
 
             {/* Field: Image URL */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Direct Image / Photograph URL</label>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t("catalog.hubFieldImage")}</label>
               <input
                 type="text"
                 placeholder="https://images.unsplash.com/your-image"
@@ -1108,7 +1111,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
 
             {/* Field: Detailed description */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Catalog Front Description Text</label>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t("catalog.hubFieldDesc")}</label>
               <textarea
                 id="field_desc"
                 className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/15 min-h-[110px] leading-relaxed transition-all font-normal text-slate-700 bg-slate-50"
@@ -1121,18 +1124,18 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
             {/* Pricing dynamic spreadsheet calculator info */}
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2 font-mono text-[11px]">
               <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block pb-1 border-b border-slate-200/60">
-                Formula Real-time Cell Outputs
+                {t("catalog.addFormulaTitle")}
               </span>
               <div className="flex justify-between">
-                <span className="text-slate-500">Retail Revenue Match (MSRP):</span>
+                <span className="text-slate-500">{t("catalog.addFormulaMsrp")}</span>
                 <span className="font-extrabold text-slate-800">${localSellingPrice.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Wholesale Asset Cost (COGS):</span>
+                <span className="text-slate-500">{t("catalog.addFormulaCogs")}</span>
                 <span className="font-semibold text-indigo-700">${localBuyingPrice.toFixed(2)}</span>
               </div>
               <div className="flex justify-between border-t border-slate-200/50 pt-1.5 text-xs">
-                <span className="font-bold text-slate-700">Calculated Net profit margin:</span>
+                <span className="font-bold text-slate-700">{t("catalog.addFormulaMargin")}</span>
                 <span className={`font-black font-mono ${calculatedProfit > 0 ? "text-emerald-700" : "text-rose-600"}`}>
                   ${calculatedProfit.toFixed(2)} ({calculatedROI}% ROI)
                 </span>
@@ -1151,7 +1154,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
               className={`flex-1 py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'copywriter' ? 'bg-orange-500 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              AI Copywriter Tool
+              {t("catalog.tabCopywriter")}
             </button>
             
             <button
@@ -1159,7 +1162,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
               className={`flex-1 py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'pricing' ? 'bg-orange-500 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               <TrendingDown className="w-3.5 h-3.5" />
-              AI Pricing Strategy
+              {t("catalog.tabPricing")}
             </button>
 
             <button
@@ -1167,7 +1170,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
               className={`flex-1 py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'feedbacks' ? 'bg-orange-500 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               <Database className="w-3.5 h-3.5" />
-              AI Log Sorter
+              {t("catalog.tabLogs")}
             </button>
 
             <button
@@ -1175,7 +1178,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
               className={`flex-1 py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'social' ? 'bg-orange-500 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               <Share2 className="w-3.5 h-3.5" />
-              Social Deployer
+              {t("catalog.tabSocial")}
             </button>
           </div>
 
@@ -1186,10 +1189,10 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-orange-500" />
-                    AI Copywriter Agent
+                    {t("catalog.copyTitle")}
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-1 leading-normal">
-                    Finetunes website metadata, social hooks, and bullet lists matching the unique traits of <span className="font-semibold text-slate-700">{localName}</span>.
+                    {t("catalog.copySubtitle", { name: localName })}
                   </p>
                 </div>
 
@@ -1197,27 +1200,27 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                   {/* Copy config */}
                   <div className="space-y-3.5 text-xs">
                     <div className="space-y-1">
-                      <label className="font-bold text-slate-500 uppercase text-[10px]">Specific Product Attributes</label>
+                      <label className="font-bold text-slate-500 uppercase text-[10px]">{t("catalog.copyAttrLabel")}</label>
                       <textarea
                         className="w-full text-xs p-2.5 border border-slate-200 rounded-xl min-h-[90px] focus:outline-none focus:ring-1 focus:ring-orange-500/20 bg-slate-50 font-normal text-slate-700"
-                        placeholder="e.g. double layer genuine bamboo fiber, hand carved, fresh timber scent, fully dynamic"
+                        placeholder={t("catalog.copyAttrPlaceholder")}
                         value={copyAttributes}
                         onChange={(e) => setCopyAttributes(e.target.value)}
                       />
-                      <span className="text-[9px] text-slate-400">If empty, AI will automatically analyze your live storefront description above.</span>
+                      <span className="text-[9px] text-slate-400">{t("catalog.copyAttrHint")}</span>
                     </div>
 
                     <div className="space-y-1">
-                      <label className="font-bold text-slate-500 uppercase text-[10px]">Tone of Delivery voice</label>
+                      <label className="font-bold text-slate-500 uppercase text-[10px]">{t("catalog.copyToneLabel")}</label>
                       <select
                         className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-orange-500/20 text-slate-700 font-semibold"
                         value={copyTone}
                         onChange={(e) => setCopyTone(e.target.value)}
                       >
-                        <option value="Premium and Professional">Premium and Professional</option>
-                        <option value="Luxury and Warm artisan legacy tone">Luxury & Heritage Artisan</option>
-                        <option value="Playful, witty, and extremely high energy">Witty & High Energy</option>
-                        <option value="Technical, straightforward, and highly factual">Factual Technical</option>
+                        <option value="Premium and Professional">{t("catalog.copyTonePremium")}</option>
+                        <option value="Luxury and Warm artisan legacy tone">{t("catalog.copyToneLuxury")}</option>
+                        <option value="Playful, witty, and extremely high energy">{t("catalog.copyToneWitty")}</option>
+                        <option value="Technical, straightforward, and highly factual">{t("catalog.copyToneFactual")}</option>
                       </select>
                     </div>
 
@@ -1229,12 +1232,12 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                       {copyLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Synthesizing creative write-up...
+                          {t("catalog.copyGenerating")}
                         </>
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4 text-amber-300" />
-                          Generate copywriting copy live
+                          {t("catalog.copyGenerate")}
                         </>
                       )}
                     </button>
@@ -1245,9 +1248,9 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                     {generatedCopy ? (
                       <div className="space-y-3">
                         <div className="flex border-b border-slate-100 text-[10px] font-extrabold pb-1.5 gap-2.5 uppercase tracking-wide">
-                          <button onClick={() => setCopyActiveTab("website")} className={`pb-1 ${copyActiveTab === 'website' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-slate-400 hover:text-slate-700'}`}>Website Copy</button>
-                          <button onClick={() => setCopyActiveTab("social")} className={`pb-1 ${copyActiveTab === 'social' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-slate-400 hover:text-slate-700'}`}>Social Hook</button>
-                          <button onClick={() => setCopyActiveTab("features")} className={`pb-1 ${copyActiveTab === 'features' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-slate-400 hover:text-slate-700'}`}>USPs</button>
+                          <button onClick={() => setCopyActiveTab("website")} className={`pb-1 ${copyActiveTab === 'website' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-slate-400 hover:text-slate-700'}`}>{t("catalog.copySubWebsite")}</button>
+                          <button onClick={() => setCopyActiveTab("social")} className={`pb-1 ${copyActiveTab === 'social' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-slate-400 hover:text-slate-700'}`}>{t("catalog.copySubSocial")}</button>
+                          <button onClick={() => setCopyActiveTab("features")} className={`pb-1 ${copyActiveTab === 'features' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-slate-400 hover:text-slate-700'}`}>{t("catalog.copySubUsps")}</button>
                         </div>
 
                         <div className="bg-amber-50/20 border border-amber-100 p-3 rounded-xl min-h-[120px] text-xs text-slate-700 leading-relaxed font-sans overflow-y-auto max-h-[170px]">
@@ -1272,15 +1275,15 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                             className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-lg tracking-wide shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5 text-white animate-bounce" />
-                            Apply generated copy to description!
+                            {t("catalog.copyApply")}
                           </button>
                         )}
                       </div>
                     ) : (
                       <div className="border border-dashed border-slate-200 rounded-2xl h-full flex flex-col justify-center items-center p-6 text-center text-slate-400 min-h-[200px]">
                         <MessageSquareHeart className="w-10 h-10 text-slate-350 stroke-[1.2] animate-pulse mb-1.5" />
-                        <h4 className="font-bold text-slate-600 text-xs text-slate-500">Awaiting creativity trigger</h4>
-                        <p className="text-[10px] text-slate-400 max-w-xs mt-1">Ready to rewrite descriptions. Modify parameters or click "Generate" to let artificial intelligence take write over!</p>
+                        <h4 className="font-bold text-slate-600 text-xs text-slate-500">{t("catalog.copyIdle")}</h4>
+                        <p className="text-[10px] text-slate-400 max-w-xs mt-1">{t("catalog.copyReady")}</p>
                       </div>
                     )}
                   </div>
@@ -1295,16 +1298,16 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                   <div className="space-y-0.5">
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                       <TrendingDown className="w-4 h-4 text-orange-500" />
-                      Smart Competitive Pricing
+                      {t("catalog.priceTitle")}
                     </h3>
                     <p className="text-[11px] text-slate-400">
-                      Evaluate active competitors and adjust pricing using optimized margin formulas.
+                      {t("catalog.priceSubtitle")}
                     </p>
                   </div>
 
                   {/* Optional Toggle */}
                   <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl">
-                    <span className="text-[10px] font-mono font-black uppercase text-amber-800 tracking-wide">SMART POSITIONER OPTION</span>
+                    <span className="text-[10px] font-mono font-black uppercase text-amber-800 tracking-wide">{t("catalog.priceSmartLabel")}</span>
                     <button
                       onClick={() => {
                         setEnableSmartPricing(!enableSmartPricing);
@@ -1320,14 +1323,14 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                 {!enableSmartPricing ? (
                   <div className="p-8 text-center text-slate-400 flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-2xl min-h-[220px]">
                     <Lock className="w-10 h-10 text-slate-300 stroke-[1] mb-2" />
-                    <h4 className="font-semibold text-xs text-slate-600">Smart Pricing Strategy is currently offline</h4>
-                    <p className="text-[10.5px] max-w-sm mt-1">This tool lets you track local competitors, view market averages in real-time, and run AI matching. Opt-in using the slider option toggle at the top right.</p>
+                    <h4 className="font-semibold text-xs text-slate-600">{t("catalog.priceOffline")}</h4>
+                    <p className="text-[10.5px] max-w-sm mt-1">{t("catalog.priceOfflineHelp")}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Competitors and controller info */}
                     <div className="space-y-3.5">
-                      <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Configure Regional Competitors</span>
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">{t("catalog.priceCompetitorTitle")}</span>
                       
                       <div className="space-y-1.5 max-h-[110px] overflow-y-auto pr-1">
                         {competitors.map((comp, idx) => (
@@ -1347,7 +1350,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <input
                           type="text"
-                          placeholder="Comp Name"
+                          placeholder={t("catalog.priceCompName")}
                           className="p-2 border border-slate-205 rounded-lg bg-white"
                           value={newCompName}
                           onChange={(e) => setNewCompName(e.target.value)}
@@ -1356,7 +1359,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                           <input
                             type="number"
                             step="0.01"
-                            placeholder="Price Value"
+                            placeholder={t("catalog.priceCompPrice")}
                             className="p-2 border border-slate-205 rounded-lg w-full bg-white font-mono"
                             value={newCompPrice}
                             onChange={(e) => setNewCompPrice(e.target.value)}
@@ -1375,12 +1378,12 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                         {pricingLoading ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Analyzing market indices...
+                            {t("catalog.priceAnalyzing")}
                           </>
                         ) : (
                           <>
                             <Sparkle className="w-4 h-4 text-amber-300 animate-spin" />
-                            Analyze pricing parameters
+                            {t("catalog.priceAnalyze")}
                           </>
                         )}
                       </button>
@@ -1390,11 +1393,11 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                     <div className="space-y-3">
                       {/* Price Scale Graphics */}
                       <div className="bg-slate-50 p-3 rounded-2xl border border-slate-150 space-y-3">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-405 block">Market Positioning Map</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-405 block">{t("catalog.priceMapTitle")}</span>
                         
                         <div className="relative h-10 bg-slate-200/50 border border-slate-300/40 rounded-lg flex items-center px-4">
                           <div className="absolute left-2.5 text-[9px] font-mono leading-none flex flex-col">
-                            <span className="text-slate-400">Min</span>
+                            <span className="text-slate-400">{t("catalog.priceMapMin")}</span>
                             <span className="font-extrabold text-slate-600">${minPriceP.toFixed(2)}</span>
                           </div>
 
@@ -1412,14 +1415,14 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                           </div>
 
                           <div className="absolute right-2.5 text-right text-[9px] font-mono leading-none flex flex-col">
-                            <span className="text-slate-400">Max</span>
+                            <span className="text-slate-400">{t("catalog.priceMapMax")}</span>
                             <span className="font-extrabold text-slate-600">${maxPriceP.toFixed(2)}</span>
                           </div>
                         </div>
 
                         {/* Opportunity Gap badge detail */}
                         <div className="flex justify-between text-[11px] font-mono py-1">
-                          <span className="text-slate-500">Market Competitor Avg:</span>
+                          <span className="text-slate-500">{t("catalog.priceMarketAvg")}</span>
                           <span className="font-bold text-slate-800">${competitorAvg.toFixed(2)}</span>
                         </div>
                       </div>
@@ -1429,7 +1432,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                         <div className="bg-slate-900 text-slate-100 p-3.5 rounded-2xl space-y-3 relative overflow-hidden">
                           <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider border-b border-slate-800 pb-1.5">
                             <span className="text-orange-400">{pricingAnalysis.marketPositioning}</span>
-                            <span className="text-white/40">AI Advice</span>
+                            <span className="text-white/40">{t("catalog.priceAdviceLabel")}</span>
                           </div>
                           
                           <p className="text-[10px] text-slate-300 leading-snug font-sans truncate hover:text-white transition">
@@ -1438,11 +1441,11 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
 
                           <div className="grid grid-cols-2 gap-2 text-center text-xs">
                             <div onClick={() => handleApplyAIPricing(pricingAnalysis.recommendedPrice)} className="cursor-pointer bg-slate-800 hover:bg-slate-750 p-2 rounded-xl border border-slate-700/50 space-y-0.5 text-left select-none transition">
-                              <span className="text-[9px] font-bold text-slate-500 block uppercase font-sans">Recommended Price</span>
+                              <span className="text-[9px] font-bold text-slate-500 block uppercase font-sans">{t("catalog.priceRecommended")}</span>
                               <span className="font-mono text-emerald-400 font-black">${pricingAnalysis.recommendedPrice.toFixed(2)}</span>
                             </div>
                             <div onClick={() => handleApplyAIPricing(pricingAnalysis.promotionalPrice)} className="cursor-pointer bg-slate-800 hover:bg-slate-750 p-2 rounded-xl border border-slate-700/50 space-y-0.5 text-left select-none transition">
-                              <span className="text-[9px] font-bold text-slate-500 block uppercase font-sans">Promo Price</span>
+                              <span className="text-[9px] font-bold text-slate-500 block uppercase font-sans">{t("catalog.pricePromo")}</span>
                               <span className="font-mono text-cyan-405 font-black">${pricingAnalysis.promotionalPrice.toFixed(2)}</span>
                             </div>
                           </div>
@@ -1450,7 +1453,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                       ) : (
                         <div className="border border-slate-100 p-3 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-center font-mono text-[10px] text-slate-400">
                           <AlertCircle className="w-5 h-5 text-indigo-500 mb-1" />
-                          <span>Pricing recommendations awaiting generation. Analyze values to load AI matrices.</span>
+                          <span>{t("catalog.priceIdle")}</span>
                         </div>
                       )}
                     </div>
@@ -1465,17 +1468,17 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <Database className="w-4 h-4 text-orange-500" />
-                    AI Log Audit & Feedback Sorter
+                    {t("catalog.logTitle")}
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-1 leading-normal">
-                    Examine recent system records, server requests, or client reviews matching category <span className="font-bold text-slate-700">"{localCategory}"</span>.
+                    {t("catalog.logSubtitle", { category: localCategory })}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Logs configure */}
                   <div className="space-y-3.5">
-                    <label className="font-bold text-slate-500 uppercase text-[10px] block">Log Records Source Stream</label>
+                    <label className="font-bold text-slate-500 uppercase text-[10px] block">{t("catalog.logStreamLabel")}</label>
                     <textarea 
                       className="w-full text-xs p-2.5 border border-slate-205 rounded-xl min-h-[110px] focus:outline-none bg-slate-50 font-mono text-slate-600 leading-relaxed"
                       value={feedbackLogs}
@@ -1490,12 +1493,12 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                       {sorterLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Sorting dynamic logs...
+                          {t("catalog.logSorting")}
                         </>
                       ) : (
                         <>
                           <Database className="w-3.5 h-3.5 text-white" />
-                          Categorize associated logs
+                          {t("catalog.logCategorize")}
                         </>
                       )}
                     </button>
@@ -1506,7 +1509,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                     {sorterResult ? (
                       <div className="space-y-2.5">
                         <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-xl text-[11px]">
-                          <span className="font-extrabold text-emerald-800 block uppercase text-[9px] mb-1">AI Executive Analysis ({sorterResult.dataType})</span>
+                          <span className="font-extrabold text-emerald-800 block uppercase text-[9px] mb-1">{t("catalog.logAnalysisTitle", { type: sorterResult.dataType })}</span>
                           <p className="text-slate-705 leading-normal italic">
                             "{sorterResult.summaryText}"
                           </p>
@@ -1517,13 +1520,13 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                           return (
                             <div key={iIdx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-150 space-y-1.5 text-xs">
                               <div className="flex justify-between items-center text-[10px] font-bold">
-                                <span className="text-slate-400 font-mono">REC-{it.id}</span>
+                                <span className="text-slate-400 font-mono">{t("catalog.logRecId", { id: it.id })}</span>
                                 <span className={`px-2 py-0.5 rounded border ${isNegative ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
-                                  {it.sentiment} sentiment
+                                  {t("catalog.logSentiment", { sentiment: it.sentiment })}
                                 </span>
                               </div>
                               <p className="font-bold text-slate-800 leading-snug">{it.resolvedSummary}</p>
-                              <p className="text-[11px] text-slate-500 leading-normal"><span className="font-semibold text-orange-600">Action:</span> {it.actionableInsight}</p>
+                              <p className="text-[11px] text-slate-500 leading-normal">{t("catalog.logAction", { insight: it.actionableInsight })}</p>
                             </div>
                           );
                         })}
@@ -1531,7 +1534,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                     ) : (
                       <div className="border border-slate-100 p-6 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-center font-mono text-[10px] text-slate-400 h-full min-h-[170px]">
                         <Database className="w-6 h-6 text-slate-300 stroke-[1.5] mb-1.5 animate-pulse" />
-                        <span>Awaiting analysis logs. Trigger Gemini matching above.</span>
+                        <span>{t("catalog.logIdle")}</span>
                       </div>
                     )}
                   </div>
@@ -1552,10 +1555,10 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                     <div className="space-y-0.5">
                       <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                         <Share2 className="w-4 h-4 text-orange-500 animate-pulse" />
-                        SME Social Media Deployer
+                        {t("catalog.socialTitle")}
                       </h3>
                       <p className="text-[11px] text-slate-400">
-                        Draft, optimize, and instantly publish campaign updates across multi-channel authenticated accounts.
+                        {t("catalog.socialSubtitle")}
                       </p>
                     </div>
                   </div>
@@ -1565,13 +1568,13 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                     <div className="space-y-4">
                       {/* Platform Selector */}
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Select Social Network</label>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">{t("catalog.socialPlatformLabel")}</label>
                         <div className="grid grid-cols-4 gap-2">
                           {[
-                            { id: "instagram", name: "Instagram", icon: Instagram, color: "hover:bg-pink-50 text-pink-600 border-pink-100 hover:border-pink-300" },
-                            { id: "linkedin", name: "LinkedIn", icon: Linkedin, color: "hover:bg-blue-50 text-blue-700 border-blue-100 hover:border-blue-300" },
-                            { id: "twitter", name: "X / Twitter", icon: Twitter, color: "hover:bg-slate-100 text-slate-800 border-slate-200 hover:border-slate-300" },
-                            { id: "facebook", name: "Facebook", icon: Facebook, color: "hover:bg-indigo-50 text-indigo-700 border-indigo-100 hover:border-indigo-350" }
+                            { id: "instagram", name: t("catalog.socialPlatformInstagram"), icon: Instagram, color: "hover:bg-pink-50 text-pink-600 border-pink-100 hover:border-pink-300" },
+                            { id: "linkedin", name: t("catalog.socialPlatformLinkedin"), icon: Linkedin, color: "hover:bg-blue-50 text-blue-700 border-blue-100 hover:border-blue-300" },
+                            { id: "twitter", name: t("catalog.socialPlatformTwitter"), icon: Twitter, color: "hover:bg-slate-100 text-slate-800 border-slate-200 hover:border-slate-300" },
+                            { id: "facebook", name: t("catalog.socialPlatformFacebook"), icon: Facebook, color: "hover:bg-indigo-50 text-indigo-700 border-indigo-100 hover:border-indigo-350" }
                           ].map((plat) => {
                             const IconComp = plat.icon;
                             const isSelected = socialPlatform === plat.id;
@@ -1580,7 +1583,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                                 key={plat.id}
                                 onClick={() => {
                                   setSocialPlatform(plat.id as any);
-                                  onAddLog(`[SOCIAL] ${new Date().toLocaleTimeString()}: Switched active social target to ${plat.name}.`);
+                                  onAddLog(t("catalog.socialSwitched", { time: new Date().toLocaleTimeString(), name: plat.name }));
                                 }}
                                 className={`flex flex-col items-center justify-center p-2.5 rounded-xl border-2 text-[10px] font-bold gap-1 transition-all cursor-pointer ${
                                   isSelected 
@@ -1601,7 +1604,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                         <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
                           <label className="text-[10px] font-extrabold uppercase text-slate-550 block tracking-wider flex items-center gap-1">
                             <Lock className="w-3 h-3 text-indigo-550" />
-                            Connected {socialPlatform.toUpperCase()} Profiles
+                            {t("catalog.socialAccountsTitle", { platform: socialPlatform.toUpperCase() })}
                           </label>
                           <button
                             onClick={() => {
@@ -1610,7 +1613,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                             }}
                             className="text-[9px] font-black text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1 cursor-pointer"
                           >
-                            <Plus className="w-3 h-3" /> Connect account
+                            <Plus className="w-3 h-3" /> {t("catalog.socialConnect")}
                           </button>
                         </div>
 
@@ -1644,7 +1647,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                                   </div>
                                   <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                                     <span className="text-[8px] px-1.5 py-0.5 font-bold rounded bg-emerald-50 text-emerald-700 uppercase border border-emerald-100">
-                                      Active
+                                      {t("catalog.socialActive")}
                                     </span>
                                     <button
                                       onClick={(e) => {
@@ -1652,7 +1655,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                                         handleDeleteAccount(acc.id, acc.name);
                                       }}
                                       className="p-1 hover:bg-rose-50 rounded text-rose-500 transition hover:text-rose-700 cursor-pointer"
-                                      title="Disconnect Account"
+                                      title={t("catalog.socialDisconnect")}
                                     >
                                       <Trash2 className="w-3 h-3" />
                                     </button>
@@ -1664,7 +1667,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                         ) : (
                           <div className="py-5 text-center border-2 border-dashed border-slate-200 rounded-xl space-y-2 bg-white">
                             <p className="text-[10px] text-slate-400 font-bold font-mono">
-                              No authenticated {socialPlatform} channels linked.
+                              {t("catalog.socialNone", { platform: socialPlatform })}
                             </p>
                             <button
                               onClick={() => {
@@ -1673,7 +1676,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                               }}
                               className="px-2.5 py-1.5 bg-slate-900 leading-none text-white rounded-lg text-[9px] font-black hover:bg-slate-800 transition cursor-pointer"
                             >
-                              + Connect {socialPlatform.toUpperCase()} Account
+                              {t("catalog.socialAddOne", { platform: socialPlatform.toUpperCase() })}
                             </button>
                           </div>
                         )}
@@ -1682,25 +1685,25 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                       {/* Tone select & prompts */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Desired Tone</label>
+                          <label className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">{t("catalog.socialToneLabel")}</label>
                           <select
                             className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 font-semibold text-slate-700"
                             value={socialTone}
                             onChange={(e) => setSocialTone(e.target.value)}
                           >
-                            <option value="Excited and Bold">Excited and Bold</option>
-                            <option value="Professional and Trustworthy">Professional and Trustworthy</option>
-                            <option value="Witty and Creative">Witty and Creative</option>
-                            <option value="Urgent (Flash Sale)">Urgent (Flash Sale)</option>
-                            <option value="Storytelling Story">Storytelling</option>
+                            <option value="Excited and Bold">{t("catalog.socialToneBold")}</option>
+                            <option value="Professional and Trustworthy">{t("catalog.socialTonePro")}</option>
+                            <option value="Witty and Creative">{t("catalog.socialToneWitty")}</option>
+                            <option value="Urgent (Flash Sale)">{t("catalog.socialToneUrgent")}</option>
+                            <option value="Storytelling Story">{t("catalog.socialToneStory")}</option>
                           </select>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Custom Guidance (Optional)</label>
+                          <label className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">{t("catalog.socialGuidanceLabel")}</label>
                           <input
                             type="text"
-                            placeholder="e.g. mention free shipping"
+                            placeholder={t("catalog.socialGuidancePlaceholder")}
                             className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 font-medium text-slate-700"
                             value={socialDescription}
                             onChange={(e) => setSocialDescription(e.target.value)}
@@ -1710,10 +1713,10 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
 
                       {/* Edit post photo link */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Campaign Photo / Graphic Link</label>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">{t("catalog.socialImageLabel")}</label>
                         <input
                           type="text"
-                          placeholder="Inherited image url..."
+                          placeholder={t("catalog.socialImagePlaceholder")}
                           className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-505 focus:outline-none"
                           value={socialImage}
                           onChange={(e) => setSocialImage(e.target.value)}
@@ -1729,12 +1732,12 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                         {socialLoading ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Synthesizing campaign variables...
+                            {t("catalog.socialGenerating")}
                           </>
                         ) : (
                           <>
                             <Sparkles className="w-3.5 h-3.5" />
-                            Generate Custom copy with Gemini
+                            {t("catalog.socialGenerate")}
                           </>
                         )}
                       </button>
@@ -1752,7 +1755,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                         <div className="bg-amber-50/40 border border-amber-100 p-3 rounded-xl text-[11px] space-y-1">
                           <span className="font-extrabold text-[9px] uppercase tracking-wider text-amber-800 flex items-center gap-1">
                             <Cpu className="w-3 h-3 text-amber-600 animate-bounce" />
-                            SME Campaign Layout Strategy
+                            {t("catalog.socialStrategy")}
                           </span>
                           <p className="text-slate-655 font-medium leading-relaxed italic pr-1">
                             {socialVisualAdvice}
@@ -1763,7 +1766,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
 
                     {/* RIGHT: REAL-TIME DEVICE CAMPAIGN PREVIEW CARD */}
                     <div className="space-y-3.5">
-                      <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Platform Live Feed Preview</span>
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">{t("catalog.socialPreviewLabel")}</span>
                       
                       <div className="bg-slate-100 border border-slate-205 rounded-2xl p-4 flex flex-col justify-between max-w-[340px] mx-auto shadow-xs select-none">
                         {/* Live platform Header mockup */}
@@ -1780,7 +1783,7 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                                 <span className="font-extrabold text-[11.5px] text-slate-800 truncate max-w-[140px]">{activeAccountName}</span>
                                 <span className="text-blue-500 text-[10px] font-black">✓</span>
                               </div>
-                              <span className="text-[9px] text-slate-400 font-mono">{activeAccountTag} • Sponsored</span>
+                              <span className="text-[9px] text-slate-400 font-mono">{activeAccountTag} • {t("catalog.socialSponsored")}</span>
                             </div>
                           </div>
                           <div className="bg-slate-200 border border-slate-300 rounded px-1.5 py-0.5 text-[8px] font-mono font-bold text-slate-500 uppercase">
@@ -1800,36 +1803,36 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                           ) : (
                             <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 text-[10px] font-mono">
                               <AlertCircle className="w-6 h-6 text-slate-400 mb-1" />
-                              <span>Photo missing. Ensure image URL is valid or uploaded.</span>
+                              <span>{t("catalog.socialMissingPhoto")}</span>
                             </div>
                           )}
                           {/* Overlay with pricing indicator */}
                           <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-white font-black font-mono text-[9px] drop-shadow-md">
-                            MSRP: ${localSellingPrice.toFixed(2)}
+                            {t("catalog.socialPreviewMsrp", { value: localSellingPrice.toFixed(2) })}
                           </div>
                         </div>
 
                         {/* Live Editable Text Caption Area */}
                         <div className="mt-3 space-y-2">
                           <div className="flex justify-between items-center text-[9px] font-bold text-slate-400">
-                            <span>Live Description Copy (Editable)</span>
+                            <span>{t("catalog.socialLiveCaption")}</span>
                             <button 
                               onClick={() => {
-                                navigator.clipboard.writeText(socialCopyText || `Introducing the all-new ${localName}!`);
+                                navigator.clipboard.writeText(socialCopyText || t("catalog.socialDeployDefault", { name: localName }));
                                 setCopiedSuccess(true);
                                 setTimeout(() => setCopiedSuccess(false), 2000);
                               }}
                               className="text-indigo-600 hover:text-indigo-800 transition cursor-pointer flex items-center gap-0.5"
                             >
                               <Copy className="w-3 h-3" />
-                              {copiedSuccess ? "Copied!" : "Copy"}
+                              {copiedSuccess ? t("catalog.socialCopied") : t("catalog.socialCopy")}
                             </button>
                           </div>
                           
                           <textarea
                             className="w-full text-[11px] p-2 border border-slate-200 rounded-lg bg-white/70 min-h-[90px] focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans leading-normal text-slate-700"
                             value={socialCopyText}
-                            placeholder={`Write or generate promotional speech regarding your "${localName}" here. Click "Generate" on the left to fill with Gemini automation instantly!`}
+                            placeholder={t("catalog.socialCaptionPlaceholder", { name: localName })}
                             onChange={(e) => setSocialCopyText(e.target.value)}
                           />
 
@@ -1853,22 +1856,22 @@ function ProductPageDetail({ product, onBack, onUpdateProduct, onAddLog }: Produ
                             {deployLoading ? (
                               <>
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                Publishing to {activeAccountName}...
+                                {t("catalog.socialPublishing", { name: activeAccountName })}
                               </>
                             ) : deploySuccess ? (
                               <>
                                 <CheckCircle2 className="w-3.5 h-3.5 text-white animate-bounce" />
-                                Posted Successfully to {activeAccountName}!
+                                {t("catalog.socialPublished", { name: activeAccountName })}
                               </>
                             ) : !selectedAccountId ? (
                               <>
                                 <Lock className="w-3 h-3 text-slate-300" />
-                                Link a Profile to Publish
+                                {t("catalog.socialLinkFirst")}
                               </>
                             ) : (
                               <>
                                 <Send className="w-3 h-3" />
-                                Publish Now on {activeAccountName} ({activeAccountTag})
+                                {t("catalog.socialPublishNow", { name: activeAccountName, tag: activeAccountTag })}
                               </>
                             )}
                           </button>

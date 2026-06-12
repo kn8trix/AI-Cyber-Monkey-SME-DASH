@@ -22,3 +22,6 @@ Thumbs.db
 # Vercel
 .vercel/
 .vercel-build/
+
+# BuildFest 2026 — extracted PDF text (97K derived file, regenerate via scripts/extract-pdf.cjs)
+*.pdf.text.txt
