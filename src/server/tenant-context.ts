@@ -27,13 +27,13 @@ export async function tenantContextMiddleware(req: Request, res: Response, next:
     // The `admin.` host prefix was the old signal, but admin routes can
     // also be called on the main dashboard host (e.g. when the Vercel
     // dashboard proxies /api/admin/* to the same Express app), so we
-    // also short-circuit on the URL path. `localhost` is kept as a
-    // dev-only convenience.
+    // also short-circuit on the URL path. Localhost is NOT bypassed
+    // anymore — the X-Tenant-ID header is the right way to address a
+    // tenant in dev, and storefront pages need tenant context there too.
     if (
       req.path.startsWith('/api/admin/') ||
       req.path === '/api/admin' ||
-      host?.startsWith('admin.') ||
-      host?.startsWith('localhost')
+      host?.startsWith('admin.')
     ) {
       return next();
     }

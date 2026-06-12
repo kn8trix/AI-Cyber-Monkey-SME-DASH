@@ -303,6 +303,66 @@ export default function RefactoredDashboard({
       ]
     };
 
+    // ---------------------------------------------------
+    // Provision a real backend for this new tenant. The deploy
+    // used to be fully client-side (StorefrontProfile only); now
+    // we also call /api/admin/provision so the tenant gets a row
+    // in master.tenants, a tenant_<id> Postgres schema, and the
+    // seeded products above — same backend template as the 3
+    // default storefronts. Failures fall back to client-only mode
+    // (the profile is still added) so the dashboard never breaks
+    // when the DB is offline.
+    // ---------------------------------------------------
+    let backendProvisioned = false;
+    try {
+      const productsPayload = seededProducts.map((p) => ({
+        name: p.name,
+        price: p.price,
+        category: p.category,
+        description: p.desc,
+        image: p.imageUrl,
+        stockCount: p.stockCount ?? 50,
+        buyingPrice: p.buyingPrice,
+        msrp: p.price,
+      }));
+      const provisionRes = await fetch("/api/admin/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain: generatedId,
+          name,
+          ownerEmail: `${generatedId}@invowise.local`,
+          ownerName: name,
+          plan: "free",
+          primaryColor: color,
+          themeStyle: theme,
+          initialProducts: productsPayload,
+          storefrontConfig: {
+            name,
+            tagline: newProfile.tagline,
+            primaryColor: color,
+            themeStyle: theme,
+            bannerText: newProfile.bannerText,
+            categoryDefault: newProfile.categoryDefault,
+            customFont: payload.fontFamily,
+          },
+        }),
+      });
+      if (provisionRes.ok) {
+        backendProvisioned = true;
+        const data = await provisionRes.json().catch(() => ({} as any));
+        if (data?.tenantId) {
+          (newProfile as any).tenantId = data.tenantId;
+        }
+        onAddLog(`[MSMD-BACKEND] ${new Date().toLocaleTimeString()}: ✓ Tenant ${generatedId} provisioned (${data?.tenantId?.slice(0, 8) ?? "?"}…) — API live at /api/storefront/products.`);
+      } else {
+        const errText = await provisionRes.text().catch(() => "");
+        onAddLog(`[MSMD-BACKEND] ${new Date().toLocaleTimeString()}: ⚠ Backend provisioning failed (${provisionRes.status}) for ${generatedId}. Storefront running in client-only mode. ${errText.slice(0, 120)}`);
+      }
+    } catch (e: any) {
+      onAddLog(`[MSMD-BACKEND] ${new Date().toLocaleTimeString()}: ⚠ Backend provisioning error: ${e?.message ?? e}. Storefront running in client-only mode.`);
+    }
+
     onUpdateProfiles([...storefrontProfiles, newProfile]);
     onUpdateProducts(current => [
       ...current,

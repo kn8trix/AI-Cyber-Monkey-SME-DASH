@@ -3,7 +3,10 @@ import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import multiTenantRoutes from "./src/server/multi-tenant-routes";
+import storefrontApi from "./src/server/storefront-api";
 import { initializeMasterSchema, masterPool } from "./src/server/db";
+import provisioning from "./src/server/provisioning";
+import { INITIAL_STOREFRONT_PROFILES } from "./src/data";
 import { runForecast, persistForecast } from "./src/server/forecasting";
 import { runPricing, persistPricing } from "./src/server/pricing-engine";
 import {
@@ -14,6 +17,29 @@ import {
 } from "./src/server/recommendations";
 
 dotenv.config();
+
+// ==========================================
+// CRASH-PROOF GUARD (must run BEFORE any DB import can throw)
+// ==========================================
+// `pg-pool` raises delayed unhandledRejection from its idle-client
+// reaper when the initial connect() fails (e.g. Postgres offline in
+// local dev). Without this, Node's default behaviour is to terminate
+// the process on the next tick. We pin the policy to "warn" so the
+// process can never accidentally die because the database is down —
+// the dashboard UI must remain reachable. The detailed `[server]`
+// listeners further down still log every rejection with full context.
+if (!process.env.NODE_OPTIONS || !process.env.NODE_OPTIONS.includes("unhandled-rejections")) {
+  process.env.NODE_OPTIONS = `${process.env.NODE_OPTIONS ?? ""} --unhandled-rejections=warn`.trim();
+}
+let __crashProofKeepalive: NodeJS.Timeout | null = null;
+__crashProofKeepalive = setInterval(() => {
+  // No-op tick to keep the event loop alive even when the DB is fully
+  // disconnected and there is no other scheduled work. Without this
+  // some Windows + tsx combinations can race and exit the process.
+}, 60_000);
+if (typeof __crashProofKeepalive.unref === "function") {
+  __crashProofKeepalive.unref();
+}
 
 const PORT = 3000;
 const IS_VERCEL = process.env.VERCEL === "1" || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
@@ -191,6 +217,73 @@ const requireAdmin = (req: express.Request, res: express.Response, next: express
   } catch (error) {
     console.warn("Database initialization unavailable, continuing in local UI mode:", error);
   }
+
+  // Bootstrap default tenants (the 3 storefronts seeded in data.ts).
+  // Idempotent: skips ones that already exist. Each tenant gets its
+  // own Postgres schema with seeded products so the storefront has a
+  // real backend on first boot, with no extra setup from the user.
+  if (!IS_VERCEL) {
+    try {
+      for (const profile of INITIAL_STOREFRONT_PROFILES) {
+        try {
+          // `subdomain` is the canonical tenant key on StorefrontProfile; fall
+          // back to the profile id so legacy fixtures without a subdomain still
+          // get a stable, slug-safe domain.
+          const tenantKey =
+            (profile.subdomain && String(profile.subdomain).trim()) ||
+            String(profile.id || profile.name || "tenant")
+              .toLowerCase()
+              .replace(/[^a-z0-9-]+/g, "-")
+              .replace(/^-+|-+$/g, "");
+          const ownerEmail = `${tenantKey}@invowise.local`;
+          // `coreFont` is a detailed object; flatten to a CSS-family string so
+          // it fits `InitialStorefrontConfig.customFont: string`.
+          const fontChoice: any = profile.coreFont ?? profile.customFont;
+          const customFontString =
+            fontChoice && typeof fontChoice === "object"
+              ? String(fontChoice.family || "sans")
+              : (fontChoice as string | undefined);
+          const products = (profile.products || []).map((p: any) => ({
+            name: p.name,
+            price: p.price,
+            category: p.category,
+            description: p.desc,
+            image: p.imageUrl,
+            stockCount: p.stockCount ?? 50,
+            msrp: p.msrp ?? p.price,
+            buyingPrice: p.buyingPrice,
+          }));
+          await provisioning.ensureTenant({
+            domain: tenantKey,
+            name: profile.name,
+            ownerEmail,
+            ownerName: profile.name,
+            plan: "free",
+            primaryColor: profile.primaryColor,
+            themeStyle: profile.themeStyle,
+            initialProducts: products,
+            storefrontConfig: {
+              name: profile.name,
+              tagline: profile.tagline,
+              primaryColor: profile.primaryColor,
+              themeStyle: profile.themeStyle,
+              bannerText: profile.bannerText,
+              bannerUrl: profile.bannerUrl,
+              heroImageUrl: profile.heroImageUrl,
+              customIcon: profile.customIconUrl,
+              customFont: customFontString,
+              categoryDefault: profile.categoryDefault,
+            },
+          });
+        } catch (e: any) {
+          console.warn(`[bootstrap] skipped tenant ${profile.subdomain || profile.id}:`, e?.message || e);
+        }
+      }
+      console.log("✓ Default storefront tenants bootstrapped");
+    } catch (error) {
+      console.warn("Tenant bootstrap unavailable, continuing in local UI mode:", error);
+    }
+  }
 })().catch((error) => {
   // Belt to the try/catch braces. If even this fires, log and move on.
   console.warn("[server] DB init IIFE rejected (caught, kept server alive):", error?.message || error);
@@ -202,6 +295,12 @@ const requireAdmin = (req: express.Request, res: express.Response, next: express
 // public for now.
 app.use("/api/admin", requireAdmin);
 app.use("/api", multiTenantRoutes);
+
+// Customer-facing storefront API. Same `/api` mount so the
+// tenantContextMiddleware picks up X-Tenant-ID / Host header. All
+// storefronts — the 3 defaults and any created via the deployer —
+// share this single backend template.
+app.use("/api", storefrontApi);
 
 // ==========================================
 // DEMO DATA ENDPOINTS (Supabase / Postgres)

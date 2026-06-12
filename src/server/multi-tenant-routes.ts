@@ -20,7 +20,11 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
  */
 router.post('/admin/provision', async (req: Request, res: Response) => {
   try {
-    const { domain, name, ownerEmail, ownerName, plan } = req.body;
+    const {
+      domain, name, ownerEmail, ownerName, plan,
+      primaryColor, themeStyle,
+      initialProducts, storefrontConfig,
+    } = req.body;
 
     if (!domain || !name || !ownerEmail) {
       return res.status(400).json({
@@ -41,7 +45,11 @@ router.post('/admin/provision', async (req: Request, res: Response) => {
       name,
       ownerEmail,
       ownerName: ownerName || 'Store Owner',
-      plan: (plan as 'free' | 'monthly' | 'yearly') || 'free'
+      plan: (plan as 'free' | 'monthly' | 'yearly') || 'free',
+      primaryColor,
+      themeStyle,
+      initialProducts: Array.isArray(initialProducts) ? initialProducts : undefined,
+      storefrontConfig: storefrontConfig && typeof storefrontConfig === 'object' ? storefrontConfig : undefined,
     };
 
     const result = await provisioning.provisionTenant(request);

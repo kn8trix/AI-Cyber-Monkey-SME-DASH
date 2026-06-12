@@ -2,6 +2,30 @@ import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { masterPool, getTenantPool, initializeTenantSchema } from './db';
 
+export interface InitialProduct {
+  name: string;
+  price: number;
+  category?: string;
+  description?: string;
+  image?: string;
+  stockCount?: number;
+  buyingPrice?: number;
+  msrp?: number;
+}
+
+export interface InitialStorefrontConfig {
+  name: string;
+  tagline?: string;
+  primaryColor?: string;
+  themeStyle?: string;
+  bannerText?: string;
+  bannerUrl?: string;
+  heroImageUrl?: string;
+  customIcon?: string;
+  customFont?: string;
+  categoryDefault?: string;
+}
+
 export interface ProvisioningRequest {
   domain: string;
   name: string;
@@ -10,6 +34,8 @@ export interface ProvisioningRequest {
   plan: 'free' | 'monthly' | 'yearly';
   primaryColor?: string;
   themeStyle?: string;
+  initialProducts?: InitialProduct[];
+  storefrontConfig?: InitialStorefrontConfig;
 }
 
 export interface ProvisioningResult {
@@ -130,8 +156,9 @@ class ProvisioningService {
 
       await client.query('COMMIT');
 
-      // 8. Initialize tenant schema (async, non-blocking)
-      setImmediate(() => this.initializeTenantAsync(tenantId));
+      // 8. Initialize tenant schema (async, non-blocking). Pass the
+      // request so initialProducts + storefrontConfig can be seeded.
+      setImmediate(() => this.initializeTenantAsync(tenantId, request));
 
       return {
         tenantId,
@@ -161,21 +188,61 @@ class ProvisioningService {
   /**
    * Initialize tenant schema asynchronously
    */
-  private async initializeTenantAsync(tenantId: string) {
+  private async initializeTenantAsync(tenantId: string, request?: ProvisioningRequest) {
     try {
       await initializeTenantSchema(tenantId);
-      
+
       // Initialize default storefront config
       const pool = await getTenantPool(tenantId);
       const schema = `tenant_${tenantId.replace(/-/g, '_')}`;
-      
+
+      const cfg = request?.storefrontConfig;
       await pool.query(
-        `INSERT INTO ${schema}.storefront_config (name, tagline, primary_color, theme_style, banner_text)
-         VALUES ($1, $2, $3, $4, $5)`,
-        ['New Storefront', 'Your online store', 'orange', 'tech', 'Welcome to our store']
+        `INSERT INTO ${schema}.storefront_config
+           (name, tagline, primary_color, theme_style, banner_text,
+            banner_url, hero_image_url, custom_icon, custom_font, category_default)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          cfg?.name ?? request?.name ?? 'New Storefront',
+          cfg?.tagline ?? 'Your online store',
+          cfg?.primaryColor ?? request?.primaryColor ?? 'orange',
+          cfg?.themeStyle ?? request?.themeStyle ?? 'tech',
+          cfg?.bannerText ?? 'Welcome to our store',
+          cfg?.bannerUrl ?? null,
+          cfg?.heroImageUrl ?? null,
+          cfg?.customIcon ?? null,
+          cfg?.customFont ?? 'sans',
+          cfg?.categoryDefault ?? 'all',
+        ]
       );
 
-      console.log(`✓ Tenant ${tenantId} schema initialized`);
+      // Seed initial products (if any). Skipped silently when the
+      // array is missing/empty — existing callers (admin provision
+      // without products) keep working as before.
+      const products = request?.initialProducts ?? [];
+      for (const p of products) {
+        if (!p || !p.name) continue;
+        await pool.query(
+          `INSERT INTO ${schema}.products
+             (name, price, category, description, image_url,
+              stock_count, msrp, buying_price)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            p.name,
+            Number(p.price).toFixed(2),
+            p.category ?? null,
+            p.description ?? null,
+            p.image ?? null,
+            Math.max(0, Math.floor(p.stockCount ?? 50)),
+            p.msrp != null ? Number(p.msrp).toFixed(2) : null,
+            p.buyingPrice != null ? Number(p.buyingPrice).toFixed(2) : null,
+          ]
+        );
+      }
+
+      console.log(
+        `✓ Tenant ${tenantId} schema initialized${products.length ? ` (${products.length} products seeded)` : ''}`
+      );
     } catch (error) {
       console.error(`Failed to initialize tenant ${tenantId}:`, error);
     }
@@ -190,6 +257,38 @@ class ProvisioningService {
       [domain, 'active']
     );
     return result.rows[0] || null;
+  }
+
+  /**
+   * Idempotent tenant bootstrap. Used by server startup to make sure
+   * the 3 default storefronts have rows + schemas + product seeds, and
+   * to safely re-bootstrap a tenant if its schema was dropped manually.
+   *
+   * If a tenant with this domain already exists, returns it. Otherwise
+   * delegates to `provisionTenant`.
+   */
+  async ensureTenant(request: ProvisioningRequest): Promise<{ tenant: any; created: boolean }> {
+    const existing = await this.getTenantByDomain(request.domain);
+    if (existing) {
+      // Make sure its schema is initialized (in case the row exists
+      // from a partial state). initializeTenantSchema is idempotent.
+      try {
+        await initializeTenantSchema(existing.id);
+      } catch (err) {
+        console.warn(`[ensureTenant] schema init for ${existing.id} failed:`, err);
+      }
+      return { tenant: existing, created: false };
+    }
+    const result = await this.provisionTenant(request);
+    if (result.status === 'error') {
+      throw new Error(result.message || 'ensureTenant: provisioning failed');
+    }
+    // The new tenant is provisioned. Wait for the async schema init
+    // to finish so callers can immediately use the schema.
+    // `initializeTenantAsync` runs via setImmediate; wait one tick.
+    await new Promise((r) => setTimeout(r, 50));
+    const tenant = await this.getTenantByDomain(request.domain);
+    return { tenant: tenant ?? { id: result.tenantId, domain: result.domain, name: request.name }, created: true };
   }
 
   /**

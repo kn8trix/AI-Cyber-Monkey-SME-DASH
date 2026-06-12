@@ -75,6 +75,29 @@ export async function initializeMasterSchema() {
       );
     `);
 
+    // Customer sessions (master-scoped — sessions span tenants if the
+    // same email is used on multiple stores, but each session is pinned
+    // to one tenant_id). Used by the customer-facing storefront API.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS customer_sessions (
+        session_id VARCHAR(128) PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        customer_id UUID NOT NULL,
+        email VARCHAR NOT NULL,
+        name VARCHAR,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL
+      );
+    `);
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS customer_sessions_tenant_email_idx
+         ON customer_sessions(tenant_id, email);`
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS customer_sessions_expires_idx
+         ON customer_sessions(expires_at);`
+    );
+
     // -------- Forward-only migrations (idempotent) --------
     // Add Vercel deployment columns for the per-tenant store-deploy
     // feature. Each ALTER is a no-op on fresh installs because the
