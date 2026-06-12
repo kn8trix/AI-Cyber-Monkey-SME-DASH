@@ -1,13 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/index.js": {
+      "runtime": "nodejs20.x",
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.cjs" },
-    { "source": "/store/(.*)", "destination": "/api/index.cjs" },
-    { "source": "/admin/(.*)", "destination": "/api/index.cjs" },
-    { "source": "/(.*)", "destination": "/api/index.cjs" }
+    { "source": "/api/(.*)", "destination": "/api/index" }
   ],
   "headers": [
     {

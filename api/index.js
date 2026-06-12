@@ -46,4 +46,26 @@ const app = serverBundle && serverBundle.default
   ? serverBundle.default
   : serverBundle;
 
-export default app;
+// Vercel Node serverless functions receive a Web Request in Vercel's
+// Edge runtime, but on the Node runtime they receive the raw
+// `http.IncomingMessage` / `http.ServerResponse` pair. Express
+// understands that pair directly, so we can pass them through.
+//
+// We log a one-liner on every invocation so the Vercel function logs
+// dashboard shows what URL Vercel is actually sending us. This makes
+// it easy to verify that the rewrite destination preserves the
+// original path (e.g. `/api/categorize-products`) instead of always
+// calling us at `/api/index`.
+export default function handler(req, res) {
+  if (process.env.VERCEL === "1" || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    try {
+      console.log(
+        `[api] ${req.method || "?"} ${req.url || "?"} ` +
+          `ct=${req.headers && req.headers["content-type"] ? req.headers["content-type"] : "-"}`
+      );
+    } catch {
+      /* logging must never throw */
+    }
+  }
+  return app(req, res);
+}
