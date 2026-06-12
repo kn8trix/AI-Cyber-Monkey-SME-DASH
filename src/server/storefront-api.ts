@@ -31,9 +31,19 @@ import crypto from "crypto";
 
 const router = Router();
 
-// All routes below require a resolved tenant. The middleware sets
-// `req.tenantId` from the X-Tenant-Id header (or Host header in prod).
-router.use(tenantContextMiddleware, requireTenant);
+// All storefront routes below require a resolved tenant. The middleware
+// sets `req.tenantId` from the X-Tenant-Id header (or Host header in prod).
+//
+// We scope the gate to `/storefront` (not the whole router) because the
+// router is mounted at `/api` and the AI/utility endpoints registered in
+// `server.ts` (`/api/categorize-products`, `/api/generate-description`,
+// `/api/sort-data`, etc.) flow through this same `app.use('/api', ...)`
+// mount. A blanket `router.use(tenantContextMiddleware, requireTenant)`
+// would force every request to hit Postgres via `getTenantByDomain`,
+// which 500s on Vercel where there's no DATABASE_URL for the master pool.
+// Scoping to `/storefront` means the middleware only runs for paths
+// under `/api/storefront/*`, and other `/api/*` requests pass through.
+router.use("/storefront", tenantContextMiddleware, requireTenant);
 
 // ==========================================
 // CUSTOMER SESSIONS (in-memory, single process)
