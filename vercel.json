@@ -3,7 +3,6 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": "vite",
   "functions": {
     "api/index.cjs": {
       "maxDuration": 60,
@@ -11,10 +10,10 @@
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/store/(.*)", "destination": "/api/index" },
-    { "source": "/admin/(.*)", "destination": "/api/index" },
-    { "source": "/(.*)", "destination": "/api/index" }
+    { "source": "/api/(.*)", "destination": "/api/index.cjs" },
+    { "source": "/store/(.*)", "destination": "/api/index.cjs" },
+    { "source": "/admin/(.*)", "destination": "/api/index.cjs" },
+    { "source": "/(.*)", "destination": "/api/index.cjs" }
   ],
   "headers": [
     {
