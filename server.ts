@@ -1498,6 +1498,24 @@ async function startServer() {
         if (err) next(err);
       });
     });
+
+    // Catch-all 404 for /api/* requests that no route handled. The
+    // Vercel edge can sometimes return its own 404 page (HTML) when
+    // it can't match a function; the JSON we return here makes it
+    // obvious in the browser console whether the request ever
+    // reached our Express app at all.
+    app.all(/^\/api(\/.*)?$/, (req, res) => {
+      res.status(404).json({
+        error: "API route not found",
+        method: req.method,
+        path: req.originalUrl || req.url,
+        hint:
+          "If you see this JSON in the browser, the request DID reach " +
+          "the Express app — the route is just unregistered. If you see " +
+          "plain HTML, the request never reached us (check Vercel " +
+          "function logs).",
+      });
+    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
